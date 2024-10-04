@@ -1,0 +1,70 @@
+[package]
+name = "keypom-trial-accounts"
+version = "0.1.0"
+authors = ["Ben Kurrek <bkurrek@uwaterloo.ca>"]
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+codegen-units = 1
+# Tell `rustc` to optimize for small code size.
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+[features]
+default = ["all"]
+all = ["near", "bitcoin", "evm"]
+bitcoin = ["sha2"]
+evm = []
+near = []
+
+[dependencies]
+rlp = "0.6.1"
+hex = "0.4.3"
+borsh = { version = "1.0.0", features = ["derive"] }
+near-sdk = { version = "5.5.0", features = ["legacy"] }
+serde-big-array = "0.5.1"
+bs58 = "0.5.1"
+serde = "1.0"
+sha2 = { version = "0.10.8", optional = true }
+
+[dev-dependencies]
+# ethereum
+alloy = { version = "0.3.3", features = ["full", "node-bindings", "rlp"] }
+alloy-rlp = { version = "0.3.8", features = ["derive"] }
+alloy-primitives = { version = "0.8.3" }
+
+# near
+near-primitives = { version = "0.25.0" }
+near-crypto = { version = "0.25.0" }
+near-workspaces = { version = "0.13.0", features = [
+    "experimental",
+    "unstable",
+] }
+near-jsonrpc-client = { git = "https://github.com/EdsonAlcala/near-jsonrpc-client-rs", tag = "v0.12.1" }
+
+# bitcoin
+tempfile = "3.3.0"
+bitcoin = { version = "0.32.0", default-features = false, features = [
+    "std",
+    "serde",
+    "rand-std",
+    "rand",
+    "secp-lowmemory",
+    "secp-recovery",
+] }
+bitcoind = { package = "bitcoind-json-rpc-regtest", version = "0.3.0", features = [
+    "26_0",
+] }
+
+# async
+tokio = { version = "1.38", features = ["full"] }
+
+# misc
+eyre = "0.6"
+serde_json = "1.0"
