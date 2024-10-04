@@ -4,7 +4,7 @@ import { ActionToPerform, Config, CreationConfig, TrialData } from "../types";
 
 export const GLOBAL_NETWORK = "testnet";
 export const SIGNER_ACCOUNT = "benjiman.testnet";
-export const EXISTING_TRIAL_CONTRACT = `1728072142689-trial-contract.testnet`;
+export const EXISTING_TRIAL_CONTRACT = `1728074990853-trial-contract.testnet`;
 export const NUM_TRIAL_KEYS = 5;
 
 export const CREATION_CONFIG: CreationConfig = {

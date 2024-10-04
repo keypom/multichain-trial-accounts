@@ -14,7 +14,10 @@ export async function performAction(
   );
 
   // Serialize the method arguments into a byte array
-  const serializedArgs = Buffer.from(JSON.stringify(args));
+  const serializedArgsBuffer = Buffer.from(JSON.stringify(args));
+
+  // Convert the Buffer into an array of numbers (bytes)
+  const serializedArgs = Array.from(serializedArgsBuffer);
 
   // Call the perform_action method on the contract
   const result = await sendTransaction({
@@ -24,7 +27,7 @@ export async function performAction(
     args: {
       contract_id: targetContractId,
       method_name: methodName,
-      args: serializedArgs,
+      args: serializedArgs, // Pass the base64-encoded string
       gas,
       deposit: utils.format.parseNearAmount(attachedDepositNear),
     },

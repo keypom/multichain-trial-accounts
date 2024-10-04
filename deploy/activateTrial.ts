@@ -14,7 +14,7 @@ export async function activateTrial(
     receiverId: contractAccountId,
     methodName: "activate_trial",
     args: {
-      new_account_id: newAccountId,
+      new_account_id: `${newAccountId}.testnet`,
     },
     deposit: "0", // No deposit needed in this case
     gas: "300000000000000", // Adjust gas as needed

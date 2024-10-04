@@ -25,9 +25,9 @@ export async function createTrial(
   console.log("Creating trial...");
 
   // Convert camelCase trialData to snake_case, including nested objects
-  trialData.initialDeposit = utils.format.formatNearAmount(
+  trialData.initialDeposit = utils.format.parseNearAmount(
     trialData.initialDeposit,
-  );
+  )!;
   const snakeCaseArgs = toSnakeCase(trialData);
 
   const result = await sendTransaction({

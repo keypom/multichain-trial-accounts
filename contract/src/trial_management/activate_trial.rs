@@ -9,6 +9,13 @@ pub struct CreateAccountOptions {
     pub full_access_keys: Option<Vec<PublicKey>>,
 }
 
+#[derive(Clone)]
+#[near(serializers = [json, borsh])]
+pub struct CreateAccountAdvancedOptions {
+    pub options: CreateAccountOptions,
+    pub new_account_id: AccountId,
+}
+
 #[near]
 impl Contract {
     /// Activates a trial by creating a new account with a full access key derived from the trial's key usage data.
@@ -37,13 +44,16 @@ impl Contract {
         let mpc_public_key = key_usage.mpc_key.clone();
 
         // Create account options with the full access key as the MPC public key
-        let account_options = CreateAccountOptions {
-            full_access_keys: Some(vec![mpc_public_key]),
+        let account_options = CreateAccountAdvancedOptions {
+            options: CreateAccountOptions {
+                full_access_keys: Some(vec![mpc_public_key]),
+            },
+            new_account_id,
         };
 
         // Call the MPC contract to get a signature
         Promise::new(AccountId::from_str("testnet").unwrap()).function_call_weight(
-            "sign".to_string(),
+            "create_account_advanced".to_string(),
             near_sdk::serde_json::to_vec(&account_options).unwrap(),
             NearToken::from_yoctonear(trial_data.initial_deposit.as_yoctonear()),
             Gas::from_tgas(30),

@@ -99,7 +99,25 @@ const main = async () => {
 
     // Step 4: Activate trial accounts (if applicable)
     if (CREATION_CONFIG.premadeTrialAccounts) {
-      const premadeAccounts = ["benjiman"];
+      const premadeAccounts = [Date.now().toString() + "-premade-1"];
+
+      // Read the trial keys from the file
+      const trialKeysPath = path.join(dataDir, `trial_keys_${trialId}.csv`);
+      if (!fs.existsSync(trialKeysPath)) {
+        throw new Error(`Trial keys file not found: ${trialKeysPath}`);
+      }
+      const keyData = fs.readFileSync(trialKeysPath, "utf-8");
+      const keys = keyData.split("\n").map((line) => {
+        const [publicKey, secretKey] = line.split(",");
+        return KeyPair.fromString(secretKey);
+      });
+
+      // Use the first trial key for the performAction call
+      const trialKey = keys[0];
+      const keyStore = near.connection.signer.keyStore;
+      await keyStore.setKey(GLOBAL_NETWORK, contractAccountId, trialKey);
+      signerAccount = await near.account(contractAccountId);
+
       for (const accountId of premadeAccounts) {
         await activateTrial(signerAccount, contractAccountId, accountId);
         console.log(`Activated trial account: ${accountId}`);
@@ -125,6 +143,7 @@ const main = async () => {
     const trialKey = keys[0];
     const keyStore = near.connection.signer.keyStore;
     await keyStore.setKey(GLOBAL_NETWORK, contractAccountId, trialKey);
+    signerAccount = await near.account(contractAccountId);
 
     // Perform action with the trial key
     await performAction(

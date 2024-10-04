@@ -1,17 +1,16 @@
-// import { Web3 } from "web3"
-// import { bytesToHex } from '@ethereumjs/util';
-// import { FeeMarketEIP1559Transaction } from '@ethereumjs/tx';
-// import { deriveChildPublicKey, najPublicKeyStrToUncompressedHexPoint, uncompressedHexPointToEvmAddress } from '../utils/kdf';
-// import { Common } from '@ethereumjs/common'
-// import { Contract, JsonRpcProvider } from "ethers";
-// import { parseNearAmount } from "near-api-js/lib/utils/format";
+// ethereum.js
+
 const Web3 = require("web3").default;
-const { bytesToHex } = require('@ethereumjs/util');
-const { FeeMarketEIP1559Transaction } = require('@ethereumjs/tx');
-const { deriveChildPublicKey, najPublicKeyStrToUncompressedHexPoint, uncompressedHexPointToEvmAddress } = require('../utils/kdf');
-const { Common } = require('@ethereumjs/common');
+const { bytesToHex } = require("@ethereumjs/util");
+const { FeeMarketEIP1559Transaction } = require("@ethereumjs/tx");
+const { Common } = require("@ethereumjs/common");
 const { Contract, JsonRpcProvider } = require("ethers");
 const { parseNearAmount } = require("near-api-js/lib/utils/format");
+const {
+  deriveChildPublicKey,
+  najPublicKeyStrToUncompressedHexPoint,
+  uncompressedHexPointToEvmAddress,
+} = require("./kdfUtils");
 
 class Ethereum {
   constructor(chain_rpc, chain_id) {
@@ -22,9 +21,13 @@ class Ethereum {
   }
 
   async deriveAddress(accountId, derivation_path) {
-    const publicKey = await deriveChildPublicKey(najPublicKeyStrToUncompressedHexPoint(), accountId, derivation_path);
+    const publicKey = await deriveChildPublicKey(
+      najPublicKeyStrToUncompressedHexPoint(),
+      accountId,
+      derivation_path,
+    );
     const address = await uncompressedHexPointToEvmAddress(publicKey);
-    return { publicKey: Buffer.from(publicKey, 'hex'), address };
+    return { publicKey: Buffer.from(publicKey, "hex"), address };
   }
 
   async queryGasPrice() {
@@ -68,42 +71,61 @@ class Ethereum {
     };
 
     // Create a transaction
-    const transaction = FeeMarketEIP1559Transaction.fromTxData(transactionData, { common });
+    const transaction = FeeMarketEIP1559Transaction.fromTxData(
+      transactionData,
+      { common },
+    );
     const payload = transaction.getHashedMessageToSign();
 
     // Store in sessionStorage for later
-    sessionStorage.setItem('transaction', transaction.serialize());
+    sessionStorage.setItem("transaction", transaction.serialize());
 
     return { transaction, payload };
   }
 
   async requestSignatureToMPC(wallet, contractId, path, ethPayload) {
     // Ask the MPC to sign the payload
-    sessionStorage.setItem('derivation', path);
+    sessionStorage.setItem("derivation", path);
 
     const payload = Array.from(ethPayload);
-    const { big_r, s, recovery_id } = await wallet.callMethod({ contractId, method: 'sign', args: { request: { payload, path, key_version: 0 } }, gas: '250000000000000', deposit: parseNearAmount('0.05') });
+    const { big_r, s, recovery_id } = await wallet.callMethod({
+      contractId,
+      method: "sign",
+      args: { request: { payload, path, key_version: 0 } },
+      gas: "250000000000000",
+      deposit: parseNearAmount("0.05"),
+    });
     return { big_r, s, recovery_id };
   }
 
   async reconstructSignature(big_r, S, recovery_id, transaction) {
     // reconstruct the signature
-    const r = Buffer.from(big_r.affine_point.substring(2), 'hex');
-    const s = Buffer.from(S.scalar, 'hex');
+    const r = Buffer.from(big_r.affine_point.substring(2), "hex");
+    const s = Buffer.from(S.scalar, "hex");
     const v = recovery_id;
 
     const signature = transaction.addSignature(v, r, s);
 
-    if (signature.getValidationErrors().length > 0) throw new Error("Transaction validation errors");
+    if (signature.getValidationErrors().length > 0)
+      throw new Error("Transaction validation errors");
     if (!signature.verifySignature()) throw new Error("Signature is not valid");
     return signature;
   }
 
   async reconstructSignatureFromLocalSession(big_r, s, recovery_id, sender) {
-    const serialized = Uint8Array.from(JSON.parse(`[${sessionStorage.getItem('transaction')}]`));
-    const transaction = FeeMarketEIP1559Transaction.fromSerializedTx(serialized);
-    console.log("transaction", transaction)
-    return this.reconstructSignature(big_r, s, recovery_id, transaction, sender);
+    const serialized = Uint8Array.from(
+      JSON.parse(`[${sessionStorage.getItem("transaction")}]`),
+    );
+    const transaction =
+      FeeMarketEIP1559Transaction.fromSerializedTx(serialized);
+    console.log("transaction", transaction);
+    return this.reconstructSignature(
+      big_r,
+      s,
+      recovery_id,
+      transaction,
+      sender,
+    );
   }
 
   // This code can be used to actually relay the transaction to the Ethereum network
@@ -115,5 +137,6 @@ class Ethereum {
 }
 
 module.exports = {
-  Ethereum
+  Ethereum,
 };
+

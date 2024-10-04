@@ -1,5 +1,6 @@
-// mpcUtils/kdf.d.ts
+// kdf.d.ts
+
 export function getDerivedPublicKeyFromMpc(
   accountId: string,
   derivationPath: string,
-): string;
+): Promise<Buffer>;
