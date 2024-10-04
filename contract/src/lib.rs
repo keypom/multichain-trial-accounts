@@ -1,22 +1,30 @@
 // lib.rs
-use near_sdk::collections::LookupMap;
 use near_sdk::json_types::{U128, U64};
+use near_sdk::store::LookupMap;
 use near_sdk::{
-    env, near, AccountId, Allowance, BorshStorageKey, PanicOnDefault, Promise, PublicKey,
+    env, near, require, AccountId, Allowance, BorshStorageKey, Gas, GasWeight, NearToken,
+    PanicOnDefault, Promise, PublicKey,
 };
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
-pub mod near;
+use omni_transaction::transaction_builder::TransactionBuilder;
+use omni_transaction::transaction_builder::TxBuilder;
+use omni_transaction::{
+    near::types::{
+        AccessKey as OmniAccessKey, AccessKeyPermission as OmniAccessKeyPermission,
+        Action as OmniAction, AddKeyAction as OmniAddKeyAction, BlockHash as OmniBlockHash,
+        FunctionCallAction as OmniFunctionCallAction, PublicKey as OmniPublicKey, U128 as OmniU128,
+        U64 as OmniU64,
+    },
+    types::NEAR,
+};
+use std::collections::HashMap;
 
 pub mod active_trial;
 pub mod internal;
 pub mod models;
-pub mod transaction_builder;
 pub mod trial_management;
 
 pub use models::*;
-pub use near::*;
 
 #[near(contract_state, serializers = [borsh])]
 #[derive(PanicOnDefault)]

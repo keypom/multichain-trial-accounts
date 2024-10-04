@@ -15,6 +15,7 @@ impl Contract {
         interaction_limits: Option<InteractionLimits>,
         exit_conditions: Option<ExitConditions>,
         expiration_time: Option<u64>,
+        initial_deposit: NearToken,
         chain_id: u64,
     ) -> TrialId {
         let creator_account_id = env::predecessor_account_id();
@@ -28,6 +29,7 @@ impl Contract {
             interaction_limits,
             exit_conditions,
             expiration_time,
+            initial_deposit,
             chain_id,
             creator_account_id,
         };
@@ -37,7 +39,7 @@ impl Contract {
         self.trial_nonce += 1;
         let trial_id = self.trial_nonce;
 
-        self.trial_data_by_id.insert(&trial_id, &trial_data);
+        self.trial_data_by_id.insert(trial_id, trial_data);
 
         self.adjust_deposit(initial_storage, env::storage_usage());
 

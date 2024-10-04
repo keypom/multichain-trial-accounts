@@ -1,52 +1,55 @@
-import { CreationConfig, PremadeTicketData } from "../types";
+// config.ts
+
+import { ActionToPerform, Config, CreationConfig, TrialData } from "../types";
 
 export const GLOBAL_NETWORK = "testnet";
-
 export const SIGNER_ACCOUNT = "benjiman.testnet";
-export const CLEANUP_CONTRACT = false;
+export const EXISTING_TRIAL_CONTRACT = `1728072142689-trial-contract.testnet`;
+export const NUM_TRIAL_KEYS = 5;
+
 export const CREATION_CONFIG: CreationConfig = {
   deployContract: true,
 
-  // TICKETS
-  addTickets: true,
-  premadeTickets: true,
+  createNewTrial: true,
+  addTrialAccounts: true,
+  premadeTrialAccounts: true,
 
-  // ACCOUNTS
-  createSponsors: true,
-  createWorker: true,
-  createAdmin: true,
-
-  nftDrops: true,
-  tokenDrops: true,
-  scavDrops: true,
-  multichainDrops: true,
+  performAction: true,
 };
-export const NUM_TICKETS_TO_ADD = 10;
 
-export const TICKET_URL_BASE =
-  "https://2930bf5d.keypom-redacted-app.pages.dev/tickets/ticket/ga_pass#";
-export const EXISTING_FACTORY = `1727968438229-factory.testnet`;
-export const ADMIN_ACCOUNTS = [SIGNER_ACCOUNT];
+export const MPC_CONTRACT = "v1.signer-prod.testnet";
 
-export const PREMADE_TICKET_DATA: PremadeTicketData = [
-  {
-    name: "Jake",
-    email: "",
+export const TRIAL_DATA: TrialData = {
+  allowedMethods: ["addMessage"],
+  allowedContracts: ["guest-book.testnet"],
+  maxGas: undefined,
+  maxDeposit: undefined,
+  usageConstraints: undefined,
+  interactionLimits: undefined,
+  exitConditions: undefined,
+  expirationTime: undefined,
+  initialDeposit: "10",
+  chainId: 1313161555, // Example chain ID
+};
+
+export const ACTION_PERFORMED: ActionToPerform = {
+  targetContractId: "guest-book.testnet",
+  methodName: "addMessage",
+  args: {
+    message: "Hello, World!",
   },
-  {
-    name: "Kiana",
-    email: "foo",
-  },
-  {
-    name: "Min",
-    email: "foo",
-  },
-  {
-    name: "Benji",
-    email: "foo",
-  },
-  {
-    name: "David",
-    email: "foo",
-  },
-];
+  attachedDepositNear: "1",
+  gas: "300000000000000",
+};
+
+const config: Config = {
+  GLOBAL_NETWORK,
+  SIGNER_ACCOUNT,
+  EXISTING_TRIAL_CONTRACT,
+  NUM_TRIAL_KEYS,
+  CREATION_CONFIG,
+  MPC_CONTRACT,
+  TRIAL_DATA,
+};
+
+export default config;

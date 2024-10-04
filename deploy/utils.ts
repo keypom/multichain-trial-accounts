@@ -25,13 +25,13 @@ export async function initNear(config: Config) {
   return near;
 }
 
-export async function setFactoryFullAccessKey(
-  factoryKey: string,
-  factoryAccountId: string,
+export async function setContractFullAccessKey(
+  contractKey: string,
+  contractAccountId: string,
   config: Config,
 ) {
-  const keyPair = KeyPair.fromString(factoryKey);
-  await keyStore.setKey(config.GLOBAL_NETWORK, factoryAccountId, keyPair);
+  const keyPair = KeyPair.fromString(contractKey);
+  await keyStore.setKey(config.GLOBAL_NETWORK, contractAccountId, keyPair);
 }
 
 export async function sendTransaction({
@@ -143,23 +143,11 @@ export async function createAccount({
   return keyPair.toString();
 }
 
-// Convert the map to CSV with the key and the raw JSON stringified data
-export const convertMapToRawJsonCsv = (
-  map: Map<string, Record<string, string>>,
-  config: Config,
-): string => {
-  let csvString = "Secret Key,Raw JSON Data\n"; // CSV header
-
-  for (const [encodedTicket, attendeeInfo] of map.entries()) {
-    const rawJsonData = JSON.stringify(attendeeInfo);
-    csvString += `"${rawJsonData}",${config.TICKET_URL_BASE}${encodedTicket}\n`;
-  }
-
-  return csvString;
-};
-
 // Helper function to update the EXISTING_FACTORY in config.ts dynamically
-export const updateConfigFile = (newFactoryId: string, environment: string) => {
+export const updateConfigFile = (
+  newContractId: string,
+  environment: string,
+) => {
   // Determine the config file path based on the environment
   const configFilePath = path.join(__dirname, environment, "config.ts");
 
@@ -173,13 +161,13 @@ export const updateConfigFile = (newFactoryId: string, environment: string) => {
 
   // Replace the EXISTING_FACTORY value
   const updatedContent = configContent.replace(
-    /export const EXISTING_FACTORY = `.*?`;/,
-    `export const EXISTING_FACTORY = \`${newFactoryId}\`;`,
+    /export const EXISTING_TRIAL_CONTRACT = `.*?`;/,
+    `export const EXISTING_TRIAL_CONTRACT = \`${newContractId}\`;`,
   );
 
   // Write the updated content back to the correct config file
   fs.writeFileSync(configFilePath, updatedContent);
   console.log(
-    `Updated ${environment}/config.ts with new factory ID: ${newFactoryId}`,
+    `Updated ${environment}/config.ts with new contract ID: ${newContractId}`,
   );
 };

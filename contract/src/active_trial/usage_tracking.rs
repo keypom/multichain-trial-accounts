@@ -8,21 +8,22 @@ impl Contract {
         &mut self,
         method_name: &str,
         contract_id: &AccountId,
-        gas_attached: NearGas,
+        gas_attached: Gas,
         deposit_attached: U128,
     ) -> (TrialData, KeyUsage) {
         let public_key = env::signer_account_pk();
 
         // Fetch KeyUsage
-        let mut key_usage = self
+        let key_usage = self
             .key_usage_by_pk
-            .get(&public_key)
+            .get_mut(&public_key)
             .expect("Access denied");
 
         // Fetch TrialData
         let trial_data = self
             .trial_data_by_id
             .get(&key_usage.trial_id)
+            .cloned()
             .expect("Trial data not found");
 
         // Check expiration time
@@ -49,7 +50,7 @@ impl Contract {
         // Check gas and deposit limits
         if let Some(max_gas) = trial_data.max_gas {
             assert!(
-                gas_attached.0 <= max_gas,
+                gas_attached.as_gas() <= max_gas,
                 "Attached gas exceeds maximum allowed"
             );
         }
@@ -62,13 +63,10 @@ impl Contract {
 
         // Update usage statistics
         key_usage.usage_stats.total_interactions += 1;
-        key_usage.usage_stats.gas_used += gas_attached.0;
+        key_usage.usage_stats.gas_used += gas_attached.as_gas();
         key_usage.usage_stats.deposit_used.0 += deposit_attached.0;
 
-        // Update the key usage
-        self.key_usage_by_pk.insert(&public_key, &key_usage);
-
-        (trial_data, key_usage)
+        (trial_data.clone(), key_usage.clone())
     }
 
     /// Public method to perform an action after all validations.
@@ -77,7 +75,7 @@ impl Contract {
         contract_id: AccountId,
         method_name: String,
         args: Vec<u8>,
-        gas: NearGas,
+        gas: Gas,
         deposit: U128,
     ) {
         let (trial_data, key_usage) =
@@ -111,25 +109,27 @@ impl Contract {
         contract_id: AccountId,
         method_name: String,
         args: Vec<u8>,
-        gas: NearGas,
+        gas: Gas,
         deposit: U128,
         chain_id: u64,
-    ) {
-        let mpc_contract = self.mpc_contract.clone();
-
+    ) -> Promise {
         // Build the NEAR transaction
         let tx = TransactionBuilder::new::<NEAR>()
-            .signer_id(env::current_account_id())
-            .signer_public_key(env::signer_account_pk().into())
+            .signer_id(env::current_account_id().to_string())
+            .signer_public_key(
+                OmniPublicKey::try_from(env::signer_account_pk().as_bytes()).unwrap(),
+            )
             .nonce(0) // Replace with appropriate nonce
-            .receiver_id(contract_id.clone())
-            .block_hash(env::block_hash().into())
-            .actions(vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: method_name.clone(),
-                args: args.clone(),
-                gas: gas.into(),
-                deposit: deposit.into(),
-            }))])
+            .receiver_id(contract_id.clone().to_string())
+            .block_hash(OmniBlockHash([0u8; 32]))
+            .actions(vec![OmniAction::FunctionCall(Box::new(
+                OmniFunctionCallAction {
+                    method_name: method_name.clone(),
+                    args: args.clone(),
+                    gas: OmniU64(gas.as_gas()),
+                    deposit: OmniU128(deposit.into()),
+                },
+            ))])
             .build();
 
         let payload = tx.build_for_signing();
@@ -139,15 +139,15 @@ impl Contract {
             payload,
             path: method_name.clone(),
             key_version: 0, // Assuming version 0 for simplicity
-            chain_id,
         };
 
         // Call the MPC contract to get a signature
-        Promise::new(mpc_contract).function_call(
+        Promise::new(self.mpc_contract.clone()).function_call_weight(
             "sign".to_string(),
             near_sdk::serde_json::to_vec(&sign_request).unwrap(),
-            0,
-            env::prepaid_gas() - env::used_gas(),
-        );
+            NearToken::from_yoctonear(0),
+            Gas::from_tgas(30),
+            GasWeight(1),
+        )
     }
 }

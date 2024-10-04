@@ -14,6 +14,7 @@ pub struct TrialData {
     pub expiration_time: Option<u64>, // timestamp in nanoseconds
     pub chain_id: u64,
     pub creator_account_id: AccountId,
+    pub initial_deposit: NearToken,
 }
 
 /// Specifies usage constraints like max contracts and methods.
@@ -71,6 +72,8 @@ impl Default for UsageStats {
 #[near(serializers = [json, borsh])]
 pub struct KeyUsage {
     pub trial_id: TrialId,
+    pub mpc_key: PublicKey,
+    pub account_id: Option<AccountId>,
     pub usage_stats: UsageStats,
 }
 
@@ -81,4 +84,12 @@ pub struct FunctionSuccessCondition {
     pub contract_id: AccountId,
     pub method_name: String,
     pub expected_return: String,
+}
+
+/// Structure representing a key with both a public key and MPC key
+#[derive(Clone)]
+#[near(serializers = [json, borsh])]
+pub struct KeyWithMPC {
+    pub public_key: PublicKey,
+    pub mpc_key: PublicKey,
 }

@@ -1,17 +1,14 @@
-import { addPremadeTickets, addTickets } from "./addTickets";
-import { adminCreateAccount } from "./adminCreateAccounts";
+import { Config } from "./types";
+import { initNear, setContractFullAccessKey, updateConfigFile } from "./utils";
 import fs from "fs";
 import path from "path";
-import { createDrops } from "./createDrops";
-import { Config } from "./types";
-import {
-  convertMapToRawJsonCsv,
-  initNear,
-  setFactoryFullAccessKey,
-  updateConfigFile,
-} from "./utils";
-import { deployFactory } from "./createEvent";
-import { cleanupContract } from "./cleanup";
+import { deployTrialContract } from "./createContract";
+import { createTrial } from "./createTrial";
+import { performAction } from "./performAction";
+import { addTrialKeys } from "./addTrialKeys";
+import { activateTrial } from "./activateTrial";
+import { KeyPair } from "near-api-js";
+import { ACTION_PERFORMED } from "./dev/config";
 
 // Get the environment (dev or prod) from the command-line arguments
 const env = process.argv[2] || "dev"; // Default to "dev" if no argument is provided
@@ -20,57 +17,39 @@ const env = process.argv[2] || "dev"; // Default to "dev" if no argument is prov
 const loadConfig = async (env: string) => {
   console.log(`Loading config for ${env}`);
   const config: Config = await import(`./${env}/config`);
-  const ticketData = await import(`./${env}/configData/ticketData`);
-  const sponsorData = await import(`./${env}/configData/sponsorData`);
-  const premadeTokenDrops = await import(
-    `./${env}/configData/premadeTokenDrops`
-  );
-  const premadeNftDrops = await import(`./${env}/configData/premadeNFTDrops`);
-  const premadeScavengers = await import(
-    `./${env}/configData/premadeScavengers`
-  );
-  const premadeMultichainDrops = await import(
-    `./${env}/configData/premadeMultichainDrops`
-  );
 
   return {
     config,
-    ticketData,
-    sponsorData,
-    premadeTokenDrops,
-    premadeNftDrops,
-    premadeScavengers,
-    premadeMultichainDrops,
   };
 };
 
+const writeKeysToFile = (keys: KeyPair[], trialId: number, dataDir: string) => {
+  const filePath = path.join(dataDir, `trial_keys_${trialId}.csv`);
+  const keyData = keys
+    .map((kp) => `${kp.getPublicKey().toString()},${kp.toString()}`)
+    .join("\n");
+  fs.writeFileSync(filePath, keyData);
+  console.log(`Trial keys saved to ${filePath}`);
+};
+
 const main = async () => {
-  const {
-    config,
-    ticketData: { TICKET_DATA },
-    sponsorData: { SPONSOR_DATA },
-    premadeTokenDrops: { PREMADE_TOKEN_DROP_DATA },
-    premadeNftDrops: { PREMADE_NFT_DROP_DATA },
-    premadeScavengers: { PREMADE_SCAVENGER_HUNTS },
-    premadeMultichainDrops: { PREMADE_MULTICHAIN_DROPS },
-  } = await loadConfig(env);
+  const { config } = await loadConfig(env);
 
   const {
-    ADMIN_ACCOUNTS,
-    CLEANUP_CONTRACT,
-    CREATION_CONFIG,
-    EXISTING_FACTORY,
     GLOBAL_NETWORK,
-    NUM_TICKETS_TO_ADD,
-    PREMADE_TICKET_DATA,
     SIGNER_ACCOUNT,
+    EXISTING_TRIAL_CONTRACT,
+    NUM_TRIAL_KEYS,
+    CREATION_CONFIG,
+    MPC_CONTRACT,
+    TRIAL_DATA,
   } = config;
 
   const near = await initNear(config);
   console.log("Connected to Near: ", near);
 
-  const signerAccount = await near.account(SIGNER_ACCOUNT);
-  let factoryKey: string | undefined = undefined;
+  let signerAccount = await near.account(SIGNER_ACCOUNT);
+  let contractKey: string | undefined = undefined;
 
   // Ensure the "data" directory exists, create it if it doesn't
   const dataDir = path.join(__dirname, env, "data");
@@ -78,175 +57,93 @@ const main = async () => {
     fs.mkdirSync(dataDir, { recursive: true });
   }
 
-  // STEP 1: Deploy the factory contract
-  let csvFilePath;
-  let factoryAccountId = EXISTING_FACTORY;
+  let contractAccountId = EXISTING_TRIAL_CONTRACT;
+
+  // Step 1: Deploy Contract (if required)
   if (CREATION_CONFIG.deployContract) {
-    factoryAccountId = `${Date.now().toString()}-factory.${GLOBAL_NETWORK === "testnet" ? "testnet" : "near"}`;
-    factoryKey = await deployFactory({
+    contractAccountId = `${Date.now().toString()}-trial-contract.${GLOBAL_NETWORK === "testnet" ? "testnet" : "near"}`;
+    contractKey = await deployTrialContract({
       near,
       config,
       signerAccount,
-      adminAccounts: ADMIN_ACCOUNTS,
-      factoryAccountId,
-      ticketData: TICKET_DATA,
+      contractAccountId,
+      mpcContractId: MPC_CONTRACT,
     });
 
-    // Write the sponsors CSV to the "data" directory
-    csvFilePath = path.join(dataDir, "factoryKey.csv");
-    fs.writeFileSync(csvFilePath, `${factoryAccountId},${factoryKey}`);
+    const csvFilePath = path.join(dataDir, "contractKey.csv");
+    fs.writeFileSync(csvFilePath, `${contractAccountId},${contractKey}`);
 
-    // STEP 1.1: Update the EXISTING_FACTORY in config.ts
-    updateConfigFile(factoryAccountId, env);
+    updateConfigFile(contractAccountId, env);
   }
 
-  // STEP 2: Create Sponsors
-  if (CREATION_CONFIG.createSponsors) {
-    const sponsorCSV: string[] = [];
-    for (const sponsorData of SPONSOR_DATA) {
-      const { accountId, secretKey } = await adminCreateAccount({
+  // Step 2: Create a new trial
+  let trialId: number | undefined = undefined;
+  if (CREATION_CONFIG.createNewTrial) {
+    trialId = await createTrial(signerAccount, contractAccountId, TRIAL_DATA);
+    console.log(`Trial created with ID: ${trialId}`);
+
+    // Step 3: Add trial keys (if applicable)
+    if (CREATION_CONFIG.addTrialAccounts && trialId) {
+      console.log(`Adding ${NUM_TRIAL_KEYS} trial keys...`);
+      const keyPairs = await addTrialKeys(
         signerAccount,
-        factoryAccountId,
-        newAccountName: sponsorData.accountName,
-        startingNearBalance: sponsorData.startingNearBalance,
-        startingTokenBalance: sponsorData.startingTokenBalance,
-        accountType: sponsorData.accountType,
-      });
-      sponsorCSV.push(
-        `${sponsorData.accountName}, http://localhost:3000/sponsorDashboard/${accountId}#${secretKey}`,
+        contractAccountId,
+        trialId,
+        NUM_TRIAL_KEYS,
       );
+
+      // Write keys to file
+      writeKeysToFile(keyPairs, trialId, dataDir);
+      console.log(`Trial keys added: ${keyPairs.length} keys`);
     }
 
-    // Write the sponsors CSV to the "data" directory
-    csvFilePath = path.join(dataDir, "sponsors.csv");
-    fs.writeFileSync(csvFilePath, sponsorCSV.join("\n"));
+    // Step 4: Activate trial accounts (if applicable)
+    if (CREATION_CONFIG.premadeTrialAccounts) {
+      const premadeAccounts = ["benjiman"];
+      for (const accountId of premadeAccounts) {
+        await activateTrial(signerAccount, contractAccountId, accountId);
+        console.log(`Activated trial account: ${accountId}`);
+      }
+    }
   }
 
-  // STEP 3: Create Worker
-  if (CREATION_CONFIG.createWorker) {
-    const { keyPair } = await adminCreateAccount({
-      signerAccount,
-      factoryAccountId,
-      newAccountName: "worker",
-      startingNearBalance: "0.01",
-      startingTokenBalance: "0",
-      accountType: "DataSetter",
+  // Step 5: Perform action using one of the trial keys
+  if (CREATION_CONFIG.performAction && trialId) {
+    const trialKeysPath = path.join(dataDir, `trial_keys_${trialId}.csv`);
+    if (!fs.existsSync(trialKeysPath)) {
+      throw new Error(`Trial keys file not found: ${trialKeysPath}`);
+    }
+
+    // Read the trial keys from the file
+    const keyData = fs.readFileSync(trialKeysPath, "utf-8");
+    const keys = keyData.split("\n").map((line) => {
+      const [publicKey, secretKey] = line.split(",");
+      return KeyPair.fromString(secretKey);
     });
 
-    // Write the worker information to the "data" directory
-    csvFilePath = path.join(dataDir, "worker.csv");
-    fs.writeFileSync(csvFilePath, `worker, ${keyPair.toString()}`);
+    // Use the first trial key for the performAction call
+    const trialKey = keys[0];
+    const keyStore = near.connection.signer.keyStore;
+    await keyStore.setKey(GLOBAL_NETWORK, contractAccountId, trialKey);
+
+    // Perform action with the trial key
+    await performAction(
+      signerAccount, // This will now use the trial key for signing
+      contractAccountId,
+      ACTION_PERFORMED,
+    );
+
+    console.log("Action performed successfully with trial key");
   }
 
-  if (CREATION_CONFIG.createAdmin) {
-    const { keyPair } = await adminCreateAccount({
-      signerAccount,
-      factoryAccountId,
-      newAccountName: "admin5",
-      startingNearBalance: "0.01",
-      startingTokenBalance: "0",
-      accountType: "Admin",
-    });
-
-    // Write the worker information to the "data" directory
-    csvFilePath = path.join(dataDir, "admin.csv");
-    fs.writeFileSync(csvFilePath, `admin, ${keyPair.toString()}`);
+  // Reset the key in the file system to be a full access key (if needed)
+  if (contractKey !== undefined) {
+    await setContractFullAccessKey(contractKey, contractAccountId, config);
   }
 
-  // STEP 4: Add Tickets
-  if (CREATION_CONFIG.addTickets) {
-    const defaultAttendeeInfo = new Array(NUM_TICKETS_TO_ADD).fill({
-      name: "Test User",
-      email: "test",
-    });
-    const keyPairMap = await addTickets({
-      signerAccount,
-      factoryAccountId,
-      dropId: "ga_pass",
-      attendeeInfo: defaultAttendeeInfo,
-    });
-    // Convert the keyPairMap to CSV with raw JSON and write to a file
-    const csvData = convertMapToRawJsonCsv(keyPairMap, config);
-    csvFilePath = path.join(dataDir, "tickets.csv");
-    fs.writeFileSync(csvFilePath, csvData);
-  }
-
-  if (CREATION_CONFIG.premadeTickets) {
-    const premadeCSV = await addPremadeTickets({
-      near,
-      signerAccount,
-      factoryAccountId,
-      dropId: "ga_pass",
-      attendeeInfo: PREMADE_TICKET_DATA,
-      config,
-    });
-    // Write the sponsors CSV to the "data" directory
-    csvFilePath = path.join(dataDir, "premade-tickets.csv");
-    fs.writeFileSync(csvFilePath, premadeCSV.join("\n"));
-  }
-
-  if (CREATION_CONFIG.tokenDrops) {
-    const premadeTokenDropCSV = await createDrops({
-      signerAccount,
-      factoryAccountId,
-      drops: PREMADE_TOKEN_DROP_DATA,
-    });
-    csvFilePath = path.join(dataDir, "premade-token-drops.csv");
-    fs.writeFileSync(csvFilePath, premadeTokenDropCSV.join("\n"));
-  }
-
-  if (CREATION_CONFIG.nftDrops) {
-    const premadeNFTDropCSV = await createDrops({
-      signerAccount,
-      factoryAccountId,
-      drops: PREMADE_NFT_DROP_DATA,
-    });
-    csvFilePath = path.join(dataDir, "premade-nft-drops.csv");
-    fs.writeFileSync(csvFilePath, premadeNFTDropCSV.join("\n"));
-  }
-
-  if (CREATION_CONFIG.scavDrops) {
-    const premadeScavDropCSV = await createDrops({
-      signerAccount,
-      factoryAccountId,
-      drops: PREMADE_SCAVENGER_HUNTS,
-    });
-    csvFilePath = path.join(dataDir, "premade-scav-drops.csv");
-    fs.writeFileSync(csvFilePath, premadeScavDropCSV.join("\n"));
-  }
-
-  if (CREATION_CONFIG.multichainDrops) {
-    const premadeMultichainDropCSV = await createDrops({
-      signerAccount,
-      factoryAccountId,
-      drops: PREMADE_MULTICHAIN_DROPS,
-    });
-    csvFilePath = path.join(dataDir, "premade-multichain-drops.csv");
-    fs.writeFileSync(csvFilePath, premadeMultichainDropCSV.join("\n"));
-  }
-
-  // Reset the key in file system to be full access key
-  if (factoryKey !== undefined) {
-    await setFactoryFullAccessKey(factoryKey, factoryAccountId, config);
-  }
-
-  if (CLEANUP_CONTRACT) {
-    const summary = await cleanupContract({
-      near,
-      factoryKey,
-      factoryAccountId,
-      networkId: config.GLOBAL_NETWORK,
-    });
-
-    const summaryFilePath = path.join(dataDir, "cleanup_summary.json");
-    fs.writeFileSync(summaryFilePath, JSON.stringify(summary, null, 2));
-
-    console.log(`Cleanup complete. Summary written to ${summaryFilePath}`);
-  }
-
-  console.log("Done!");
+  console.log("Setup complete!");
   console.log(
-    `https://${GLOBAL_NETWORK}.nearblocks.io/address/${factoryAccountId}`,
+    `https://${GLOBAL_NETWORK}.nearblocks.io/address/${contractAccountId}`,
   );
 };
 

@@ -1,110 +1,67 @@
 // types.ts
 
-// Define the types for DropData, NFT Metadata, and Multichain Metadata
+// Define the types for TrialData and related structures
 
-export interface DropData {
-  name: string;
-  image: string;
-  key?: string;
-  scavenger_hunt?: ScavengerHuntPiece[];
+export interface UsageConstraints {
+  maxContracts?: number;
+  maxMethods?: number;
 }
 
-export interface NFTMetadata {
-  title: string;
-  description: string;
-  media: string;
+export interface InteractionLimits {
+  maxInteractionsPerDay?: number;
+  totalInteractions?: number;
 }
 
-export interface MultichainMetadata {
-  chain_id: number;
+export interface FunctionSuccessCondition {
   contract_id: string;
-  series_id: number;
+  method_name: string;
+  expected_return: string;
 }
 
-// Scavenger Hunt Piece Definition
-export interface ScavengerHuntPiece {
-  id: number;
-  key?: string;
-  description: string;
+export interface ExitConditions {
+  transactionLimit?: number;
+  successCondition?: FunctionSuccessCondition;
+  timeLimit?: number; // timestamp in nanoseconds
 }
 
-// Data types for Token Drop, NFT Drop, and Multichain Drop
-export interface TokenDrop {
-  drop_data: DropData;
-  token_amount: string;
+export interface ActionToPerform {
+  targetContractId: string;
+  methodName: string;
+  args: any;
+  attachedDepositNear: string;
+  gas: string;
 }
 
-export interface NFTDrop {
-  drop_data: DropData;
-  nft_metadata: NFTMetadata;
-}
-
-export interface MultichainDrop {
-  drop_data: DropData;
-  nft_metadata: NFTMetadata;
-  multichain_metadata: MultichainMetadata;
-}
-
-// Premade data types for tokens, NFTs, multichain drops, and scavenger hunts
-export type PremadeTokenDrops = TokenDrop[];
-export type PremadeNFTDrops = NFTDrop[];
-export type PremadeMultichainDrops = MultichainDrop[];
-
-// Scavenger Hunt Drop type, which can be either Token-based or NFT-based
-export interface ScavengerHuntDrop {
-  drop_data: DropData;
-  nft_metadata?: NFTMetadata;
-  token_amount?: string;
-}
-
-export type PremadeScavengerHunts = ScavengerHuntDrop[];
-
-// Sponsor Data
-export interface SponsorData {
-  accountName: string;
-  startingNearBalance: string;
-  startingTokenBalance: string;
-  accountType: string;
-}
-
-export type Sponsors = SponsorData[];
-
-// Ticket Data
-export interface TicketData {
-  startingNearBalance: string;
-  startingTokenBalance: string;
-  accountType: string;
-}
-
-export interface TicketDataMap {
-  [key: string]: TicketData;
+export interface TrialData {
+  allowedMethods: string[];
+  allowedContracts: string[];
+  initialDeposit: string;
+  maxGas?: number;
+  maxDeposit?: string; // U128 represented as a string
+  usageConstraints?: UsageConstraints;
+  interactionLimits?: InteractionLimits;
+  exitConditions?: ExitConditions;
+  expirationTime?: number; // timestamp in nanoseconds
+  chainId: number;
 }
 
 // Configuration types
 export interface CreationConfig {
   deployContract: boolean;
-  addTickets: boolean;
-  premadeTickets: boolean;
-  createSponsors: boolean;
-  createWorker: boolean;
-  createAdmin: boolean;
-  nftDrops: boolean;
-  tokenDrops: boolean;
-  scavDrops: boolean;
-  multichainDrops: boolean;
+  createNewTrial: boolean;
+  addTrialAccounts: boolean;
+  premadeTrialAccounts: boolean;
+  performAction: boolean;
 }
 
-// General configuration interface
 export interface Config {
   GLOBAL_NETWORK: string;
   SIGNER_ACCOUNT: string;
-  CLEANUP_CONTRACT: boolean;
   CREATION_CONFIG: CreationConfig;
-  NUM_TICKETS_TO_ADD: number;
-  TICKET_URL_BASE: string;
-  EXISTING_FACTORY: string;
-  ADMIN_ACCOUNTS: string[];
-  PREMADE_TICKET_DATA: PremadeTicketData;
+  EXISTING_TRIAL_CONTRACT: string;
+  NUM_TRIAL_KEYS: number;
+  MPC_CONTRACT: string;
+  TRIAL_DATA: TrialData;
 }
 
 // Premade Ticket Data
