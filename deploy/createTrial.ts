@@ -1,33 +1,33 @@
 // createTrial.ts
 
 import { Account } from "@near-js/accounts";
-import { parseNearAmount } from "@near-js/utils";
 import { TrialData } from "./types";
-import { sendTransaction } from "./utils";
+import { sendTransaction, toSnakeCase } from "./utils";
+import { parseNearAmount } from "@near-js/utils";
 
-function toSnakeCase(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map((item) => toSnakeCase(item));
-  } else if (obj && typeof obj === "object" && obj.constructor === Object) {
-    return Object.keys(obj).reduce((acc: any, key: string) => {
-      const snakeKey = key.replace(/([A-Z])/g, "_$1").toLowerCase();
-      acc[snakeKey] = toSnakeCase(obj[key]);
-      return acc;
-    }, {});
-  }
-  return obj;
+interface CreateTrialParams {
+  signerAccount: Account;
+  contractAccountId: string;
+  trialData: TrialData;
 }
 
-export async function createTrial(
-  signerAccount: Account,
-  contractAccountId: string,
-  trialData: TrialData,
-): Promise<number> {
+/**
+ * Creates a new trial on the trial contract.
+ *
+ * @param params - The parameters required to create a trial.
+ * @returns A Promise that resolves to the trial ID.
+ * @throws Will throw an error if the trial creation fails.
+ */
+export async function createTrial(params: CreateTrialParams): Promise<number> {
+  const { signerAccount, contractAccountId, trialData } = params;
+
   console.log("Creating trial...");
 
-  // Convert camelCase trialData to snake_case, including nested objects
-  trialData.initialDeposit = parseNearAmount(trialData.initialDeposit)!;
-  const snakeCaseArgs = toSnakeCase(trialData);
+  // Convert camelCase trialData to snake_case
+  const snakeCaseArgs = toSnakeCase({
+    ...trialData,
+    initial_deposit: parseNearAmount(trialData.initialDeposit),
+  });
 
   const result = await sendTransaction({
     signerAccount,
@@ -41,12 +41,14 @@ export async function createTrial(
   const trialId = (result.status as any).SuccessValue
     ? parseInt(
         Buffer.from((result.status as any).SuccessValue, "base64").toString(),
+        10,
       )
     : null;
 
-  console.log(`Trial created with ID: ${trialId}`);
   if (!trialId) {
     throw new Error("Failed to create trial");
   }
+
+  console.log(`Trial created with ID: ${trialId}`);
   return trialId;
 }

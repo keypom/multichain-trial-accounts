@@ -1,34 +1,50 @@
+// createContract.ts
+
 import { Account } from "@near-js/accounts";
 import { Near } from "@near-js/wallet-account";
 import { Config } from "./types";
 import { createAccountDeployContract } from "./utils";
 
-export async function deployTrialContract({
-  near,
-  signerAccount,
-  contractAccountId,
-  mpcContractId,
-  config,
-}: {
+interface DeployContractParams {
   near: Near;
-  signerAccount: Account;
   config: Config;
+  signerAccount: Account;
   contractAccountId: string;
   mpcContractId: string;
-}) {
-  return await createAccountDeployContract({
-    signerAccount,
-    config,
-    newAccountId: contractAccountId,
-    amount: "50",
+  wasmFilePath: string;
+  initialBalance: string; // NEAR amount as a string
+}
+
+/**
+ * Deploys the trial contract by creating a new account and deploying the contract code.
+ *
+ * @param params - The parameters required to deploy the contract.
+ * @returns A Promise that resolves when the deployment is complete.
+ */
+export async function deployTrialContract(
+  params: DeployContractParams,
+): Promise<void> {
+  const {
     near,
-    wasmPath: "./out/trials.wasm",
+    signerAccount,
+    contractAccountId,
+    config,
+    mpcContractId,
+    wasmFilePath,
+    initialBalance,
+  } = params;
+
+  await createAccountDeployContract({
+    config,
+    near,
+    signerAccount,
+    newAccountId: contractAccountId,
+    amount: initialBalance,
+    wasmPath: wasmFilePath,
     methodName: "new",
     args: {
       mpc_contract: mpcContractId,
       admin_account: signerAccount.accountId,
     },
-    deposit: "0",
-    gas: "300000000000000",
   });
 }

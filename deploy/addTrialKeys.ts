@@ -1,12 +1,96 @@
+// addTrialKeys.ts
+
 import { Account } from "@near-js/accounts";
 import { KeyPair } from "@near-js/crypto";
-
-// @ts-nocheck
-
-import { getDerivedPublicKeyFromMpc } from "./mpcUtils/kdf"; // If unchanged
+import { sendTransaction, writeJSONFile, ensureDirExists } from "./utils";
+import { TrialKey } from "./types";
+import { getDerivedPublicKeyFromMpc } from "./mpcUtils/kdf";
+import path from "path";
 import bs58 from "bs58";
 
-import { sendTransaction, writeKeysToFile } from "./utils";
+interface AddTrialAccountsParams {
+  signerAccount: Account;
+  contractAccountId: string;
+  trialId: number;
+  numberOfKeys: number;
+  dataDir: string;
+}
+
+/**
+ * Adds trial accounts to the trial contract by generating key pairs and deriving MPC keys.
+ *
+ * @param params - The parameters required to add trial accounts.
+ * @returns A Promise that resolves to an array of TrialKey objects.
+ * @throws Will throw an error if adding trial keys fails.
+ */
+export async function addTrialAccounts(
+  params: AddTrialAccountsParams,
+): Promise<TrialKey[]> {
+  const { signerAccount, contractAccountId, trialId, numberOfKeys, dataDir } =
+    params;
+
+  console.log(`Adding ${numberOfKeys} trial accounts...`);
+
+  const trialKeys: TrialKey[] = [];
+
+  for (let i = 0; i < numberOfKeys; i++) {
+    // Generate a new key pair
+    const keyPair = KeyPair.fromRandom("ed25519");
+
+    // Derive the MPC public key
+    const derivationPath = keyPair.getPublicKey().toString();
+    const mpcPublicKeyBuffer = await getDerivedPublicKeyFromMpc(
+      contractAccountId,
+      derivationPath,
+    );
+    const mpcPublicKey =
+      convertSecp256k1KeyToPublicKey(mpcPublicKeyBuffer).toString();
+
+    // Generate a trial account ID
+    const trialAccountId = `${Date.now().toString()}-trial-${i}.testnet`;
+
+    trialKeys.push({
+      trialAccountId,
+      derivationPath,
+      keyPair,
+      mpcKey: mpcPublicKey,
+    });
+  }
+
+  // Prepare data to send to the contract
+  const keysWithMpc = trialKeys.map((trialKey) => ({
+    public_key: trialKey.keyPair.getPublicKey().toString(),
+    mpc_key: trialKey.mpcKey,
+  }));
+
+  // Call the `add_trial_keys` function
+  const result = await sendTransaction({
+    signerAccount,
+    receiverId: contractAccountId,
+    methodName: "add_trial_keys",
+    args: {
+      keys: keysWithMpc,
+      trial_id: trialId,
+    },
+    deposit: "1", // Adjust deposit as needed
+    gas: "300000000000000",
+  });
+
+  if (result) {
+    console.log("Trial keys added successfully.");
+
+    // Ensure the data directory exists
+    ensureDirExists(dataDir);
+
+    // Save the trial keys to a file
+    const filePath = path.join(dataDir, `trial-${trialId}-keys.json`);
+    writeJSONFile(filePath, trialKeys);
+
+    return trialKeys;
+  } else {
+    throw new Error("Failed to add trial keys");
+  }
+}
 
 function convertSecp256k1KeyToPublicKey(mpcKeyData: Buffer) {
   // Ensure mpcKeyData is a Buffer
@@ -39,66 +123,4 @@ function convertSecp256k1KeyToPublicKey(mpcKeyData: Buffer) {
     data: publicKeyData,
     toString: () => publicKeyString,
   };
-}
-
-export async function addTrialKeys(
-  signerAccount: Account,
-  contractAccountId: string,
-  trialId: number,
-  numberOfKeys: number,
-  dataDir: string,
-): Promise<KeyPair[]> {
-  console.log(`Adding ${numberOfKeys} trial keys...`);
-
-  const trialAccountIds: string[] = []; // Store trial account IDs
-  const keyPairs: KeyPair[] = [];
-  const mpcKeys: string[] = []; // Store MPC keys
-
-  for (let i = 0; i < numberOfKeys; i++) {
-    // Generate a new key pair
-    const keyPair = KeyPair.fromRandom("ed25519");
-    keyPairs.push(keyPair);
-
-    // Derive the MPC public key
-    const derivationPath = keyPair.getPublicKey().toString();
-    const mpcPublicKeyBuffer = await getDerivedPublicKeyFromMpc(
-      contractAccountId,
-      derivationPath,
-    );
-    const mpcPublicKey =
-      convertSecp256k1KeyToPublicKey(mpcPublicKeyBuffer).toString();
-    mpcKeys.push(mpcPublicKey);
-
-    // Generate a trial account ID
-    const trialAccountId = `${Date.now().toString()}-trial-${i}.testnet`;
-    trialAccountIds.push(trialAccountId);
-  }
-
-  // Call the `add_trial_keys` function using `sendTransaction`
-  const keysWithMpc = trialAccountIds.map((trialAccountId, index) => ({
-    public_key: keyPairs[index].getPublicKey().toString(),
-    mpc_key: mpcKeys[index],
-  }));
-
-  const result = await sendTransaction({
-    signerAccount: signerAccount,
-    receiverId: contractAccountId,
-    methodName: "add_trial_keys",
-    args: {
-      keys: keysWithMpc, // Send the array of objects
-      trial_id: trialId,
-    },
-    deposit: "1", // 0.001 NEAR for storage
-    gas: "300000000000000", // Adjust gas as needed
-  });
-
-  if (result) {
-    console.log("Trial keys added successfully.");
-    // Write the keys to file, mapping the trial account ID, private key, trial ID, and MPC key
-    writeKeysToFile(trialAccountIds, keyPairs, trialId, mpcKeys, dataDir);
-  } else {
-    throw new Error("Failed to add trial keys");
-  }
-
-  return keyPairs;
 }

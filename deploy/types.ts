@@ -1,29 +1,45 @@
 // types.ts
 
-// Define the types for TrialData and related structures
+import { KeyPair } from "@near-js/crypto";
+import { UnencryptedFileSystemKeyStore } from "@near-js/keystores-node";
 
+/**
+ * Constraints on the usage of the trial accounts.
+ */
 export interface UsageConstraints {
   maxContracts?: number;
   maxMethods?: number;
 }
 
+/**
+ * Limits on the interactions of the trial accounts.
+ */
 export interface InteractionLimits {
   maxInteractionsPerDay?: number;
   totalInteractions?: number;
 }
 
+/**
+ * Condition that defines a successful function call.
+ */
 export interface FunctionSuccessCondition {
-  contract_id: string;
-  method_name: string;
-  expected_return: string;
+  contractId: string;
+  methodName: string;
+  expectedReturn: string;
 }
 
+/**
+ * Conditions under which the trial account will exit.
+ */
 export interface ExitConditions {
   transactionLimit?: number;
   successCondition?: FunctionSuccessCondition;
   timeLimit?: number; // timestamp in nanoseconds
 }
 
+/**
+ * Defines an action to be performed on a contract.
+ */
 export interface ActionToPerform {
   targetContractId: string;
   methodName: string;
@@ -32,6 +48,9 @@ export interface ActionToPerform {
   gas: string;
 }
 
+/**
+ * Data required to create a trial.
+ */
 export interface TrialData {
   allowedMethods: string[];
   allowedContracts: string[];
@@ -45,32 +64,20 @@ export interface TrialData {
   chainId: number;
 }
 
-// Configuration types
-export interface CreationConfig {
-  broadcastOnly: boolean;
-  deployContract: boolean;
-  createNewTrial: boolean;
-  addTrialAccounts: boolean;
-  premadeTrialAccounts: boolean;
-  performAction: boolean;
-}
-
+/**
+ * Configuration required to initialize the NEAR connection and other parameters.
+ */
 export interface Config {
-  GLOBAL_NETWORK: string;
-  SIGNER_ACCOUNT: string;
-  CREATION_CONFIG: CreationConfig;
-  EXISTING_TRIAL_CONTRACT: string;
-  NUM_TRIAL_KEYS: number;
-  MPC_CONTRACT: string;
-  TRIAL_DATA: TrialData;
+  networkId: string;
+  signerAccountId: string;
+  keyStore: UnencryptedFileSystemKeyStore;
+  mpcContractId: string;
+  dataDir: string;
 }
 
-// Premade Ticket Data
-export interface PremadeTicket {
-  name: string;
-  email: string;
-}
-
+/**
+ * Key data structure containing information about a trial key.
+ */
 export interface KeyData {
   publicKey: string;
   secretKey: string;
@@ -78,4 +85,12 @@ export interface KeyData {
   mpcKey: string;
 }
 
-export type PremadeTicketData = PremadeTicket[];
+/**
+ * Represents a trial key along with its associated account ID and MPC key.
+ */
+export interface TrialKey {
+  trialAccountId: string;
+  derivationPath: string;
+  keyPair: KeyPair;
+  mpcKey: string;
+}

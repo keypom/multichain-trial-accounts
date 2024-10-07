@@ -1,6 +1,6 @@
 # Keypom Trial Accounts Contract
 
-Welcome to the **Keypom Trial Accounts Contract** repository. This project provides a NEAR smart contract for managing trial accounts, allowing developers to create limited-access trial accounts with specific constraints and exit conditions. It enables fine-grained control over account permissions, usage tracking, and automated transitions from trial to full accounts.
+Welcome to the **Keypom Trial Accounts** repository. This project provides both a NEAR smart contract and an accompanying NPM package for managing trial accounts. It allows developers to create limited-access trial accounts with specific constraints and exit conditions, enabling fine-grained control over account permissions, usage tracking, and automated transitions from trial to full accounts.
 
 ## Table of Contents
 
