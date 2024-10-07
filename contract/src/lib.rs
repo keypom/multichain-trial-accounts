@@ -23,9 +23,11 @@ pub mod active_trial;
 pub mod internal;
 pub mod models;
 pub mod trial_management;
+pub mod views;
 
 pub use internal::*;
 pub use models::*;
+pub use views::*;
 
 #[near(contract_state, serializers = [borsh])]
 #[derive(PanicOnDefault)]

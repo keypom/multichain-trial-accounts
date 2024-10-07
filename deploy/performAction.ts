@@ -2,7 +2,7 @@
 
 import { Account } from "@near-js/accounts";
 import { sendTransaction } from "./utils";
-import { ActionToPerform, Config } from "./types";
+import { ActionToPerform, Config, TrialData } from "./types";
 import { baseDecode, parseNearAmount } from "@near-js/utils";
 import { KeyPair, KeyType, PublicKey } from "@near-js/crypto";
 import {
@@ -35,7 +35,7 @@ interface PerformActionsParams {
  */
 export async function performActions(
   params: PerformActionsParams,
-): Promise<string[][]> {
+): Promise<{ signatures: string[][]; nonces: string[]; blockHash: string }> {
   const {
     near,
     config,
@@ -52,13 +52,24 @@ export async function performActions(
     contractAccountId,
     trialAccountSecretKey,
   );
-  const signerAccount = await near.account(contractAccountId);
+  let signerAccount = await near.account(trialAccountId);
 
   const signatures: string[][] = [];
+  const nonces: string[] = [];
 
+  const provider = signerAccount.connection.provider;
+  const block = await provider.block({ finality: "final" });
+  const blockHash = block.header.hash;
+
+  const accessKeys = await signerAccount.getAccessKeys();
+  const accessKeyForSigning = accessKeys[0];
+  let nonce = accessKeyForSigning.access_key.nonce;
+
+  signerAccount = await near.account(contractAccountId);
   for (const actionToPerform of actionsToPerform) {
     const { targetContractId, methodName, args, gas, attachedDepositNear } =
       actionToPerform;
+    nonce = BigInt(nonce) + 1n;
 
     console.log(
       `Performing action: ${methodName} on contract: ${targetContractId}`,
@@ -77,6 +88,8 @@ export async function performActions(
         args: serializedArgs,
         gas,
         deposit: parseNearAmount(attachedDepositNear),
+        nonce: nonce.toString(),
+        block_hash: blockHash,
       },
       deposit: "0",
       gas,
@@ -96,15 +109,18 @@ export async function performActions(
     ];
 
     signatures.push(sigRes);
+    nonces.push(nonce.toString());
   }
 
-  return signatures;
+  return { signatures, nonces, blockHash };
 }
 
 interface BroadcastTransactionParams {
   signerAccount: Account;
   actionToPerform: ActionToPerform;
   signatureResult: string[]; // Signature result from the MPC
+  nonce: string;
+  blockHash: string;
 }
 
 /**
@@ -117,7 +133,8 @@ interface BroadcastTransactionParams {
 export async function broadcastTransaction(
   params: BroadcastTransactionParams,
 ): Promise<void> {
-  const { signerAccount, actionToPerform, signatureResult } = params;
+  const { signerAccount, actionToPerform, signatureResult, nonce, blockHash } =
+    params;
 
   const { targetContractId, methodName, args, gas, attachedDepositNear } =
     actionToPerform;
@@ -125,12 +142,12 @@ export async function broadcastTransaction(
   const serializedArgs = new Uint8Array(Buffer.from(JSON.stringify(args)));
 
   const provider = signerAccount.connection.provider;
-  const block = await provider.block({ finality: "final" });
-  const blockHash = block.header.hash;
+
+  const blockHashBytes = bs58.decode(blockHash);
 
   const accessKeys = await signerAccount.getAccessKeys();
   const accessKeyForSigning = accessKeys[0];
-  const nonce = BigInt(accessKeyForSigning.access_key.nonce) + 1n; // Increment nonce
+  console.log("Access key for signing:", accessKeyForSigning);
 
   const actions: Action[] = [
     actionCreators.functionCall(
@@ -141,13 +158,36 @@ export async function broadcastTransaction(
     ),
   ];
 
+  // Log the transaction components for comparison
+  console.log("Broadcasting transaction...");
+  console.log("Signer Account:", signerAccount.accountId);
+  console.log("Target Contract:", targetContractId);
+  console.log("Method Name:", methodName);
+  console.log("Arguments (Uint8Array):", Array.from(serializedArgs));
+  console.log("Gas:", gas);
+  console.log("Deposit:", attachedDepositNear);
+  const rawPublicKey = accessKeyForSigning.public_key.replace("secp256k1:", "");
+  const publicKeyBytes = bs58.decode(rawPublicKey);
+  console.log("Public Key (Decoded):", Array.from(publicKeyBytes));
+
+  try {
+    const blockHashBytes = bs58.decode(blockHash);
+    console.log("Block Hash (Decoded):", Array.from(blockHashBytes));
+  } catch (error) {
+    console.error("Failed to decode block hash:", blockHash);
+    console.error(error);
+  }
+
+  console.log("Nonce:", nonce);
+  console.log("Actions:", actions);
+
   const transaction = createTransaction(
     signerAccount.accountId,
     PublicKey.fromString(accessKeyForSigning.public_key),
     targetContractId,
     nonce,
     actions,
-    baseDecode(blockHash),
+    blockHashBytes,
   );
 
   // Construct the signature
@@ -169,42 +209,6 @@ export async function broadcastTransaction(
     }),
   });
 
-  // Recover the public key from the signature
-  const ec = new elliptic.ec("secp256k1");
-
-  // Hash the transaction data (message)
-  const serializedTx = transaction.encode();
-  const msgHash = crypto.createHash("sha256").update(serializedTx).digest();
-
-  const signatureObj = {
-    r: r.toString("hex"),
-    s: s.toString("hex"),
-  };
-
-  const recoveryParam = recoveryId; // Should be an integer between 0 and 3
-
-  // Recover the public key point
-  const pubKeyPoint = ec.recoverPubKey(msgHash, signatureObj, recoveryParam);
-
-  // Get the uncompressed public key (without the prefix byte)
-  const publicKeyRecoveredBuffer = Buffer.from(
-    pubKeyPoint.encode("hex", false),
-    "hex",
-  );
-
-  // Convert the recovered public key to NEAR format
-  // NEAR's secp256k1 public keys are formatted as 'secp256k1:<base58-encoded x and y>'
-  const x = publicKeyRecoveredBuffer.slice(1, 33); // Skip the prefix byte
-  const y = publicKeyRecoveredBuffer.slice(33, 65);
-  const keyData = Buffer.concat([x, y]);
-  const base58EncodedKeyData = bs58.encode(keyData);
-  const publicKeyRecoveredString = `secp256k1:${base58EncodedKeyData}`;
-
-  // Expected public key from access key
-  const expectedPublicKey = accessKeyForSigning.public_key;
-  // Compare the recovered public key with the expected public key
-  const isSameKey = publicKeyRecoveredString === expectedPublicKey;
-
   // Send the signed transaction
   try {
     const result = await provider.sendTransaction(signedTransaction);
@@ -212,8 +216,41 @@ export async function broadcastTransaction(
   } catch (error) {
     console.error(error);
   }
+}
 
-  console.log("Public Key On Account: ", expectedPublicKey);
-  console.log("Public Key Used for Signature:", publicKeyRecoveredString);
-  console.log(`Do the keys match? ${isSameKey}`);
+export function checkActionValidity(
+  actionsToPerform: ActionToPerform[],
+  trialData: TrialData,
+): void {
+  for (const action of actionsToPerform) {
+    const { targetContractId, methodName, gas, attachedDepositNear } = action;
+
+    // Check if the method is allowed
+    if (!trialData.allowedMethods.includes(methodName)) {
+      throw new Error(`Method ${methodName} is not allowed`);
+    }
+
+    // Check if the contract is allowed
+    if (!trialData.allowedContracts.includes(targetContractId)) {
+      throw new Error(`Contract ${targetContractId} is not allowed`);
+    }
+
+    // Check gas limit
+    if (trialData.maxGas && parseInt(gas) > trialData.maxGas) {
+      throw new Error(`Gas ${gas} exceeds maximum allowed ${trialData.maxGas}`);
+    }
+
+    // Check deposit limit
+    if (
+      trialData.maxDeposit &&
+      BigInt(parseNearAmount(attachedDepositNear)!) >
+        BigInt(trialData.maxDeposit)
+    ) {
+      throw new Error(
+        `Deposit ${attachedDepositNear} exceeds maximum allowed ${trialData.maxDeposit}`,
+      );
+    }
+
+    // Additional checks can be added here (e.g., usage constraints)
+  }
 }

@@ -1,5 +1,3 @@
-// broadcastFromSignature.ts
-
 import { initNear } from "./index";
 import { broadcastTransaction } from "./performAction";
 import fs from "fs";
@@ -10,7 +8,7 @@ async function broadcastFromSignature() {
   console.log("Broadcasting transactions...");
   const near = await initNear(config);
 
-  const signaturesFilePath = path.join(config.dataDir, `signatures.json`);
+  const signaturesFilePath = path.join(config.dataDir, "signatures.json");
 
   if (!fs.existsSync(signaturesFilePath)) {
     console.error(`Signatures file not found: ${signaturesFilePath}`);
@@ -18,7 +16,7 @@ async function broadcastFromSignature() {
   }
 
   // Read signatures mapping from the file
-  const accountSignatures: { [accountId: string]: string[][] } = JSON.parse(
+  const accountSignatures: { [accountId: string]: any } = JSON.parse(
     fs.readFileSync(signaturesFilePath, "utf-8"),
   );
 
@@ -26,7 +24,7 @@ async function broadcastFromSignature() {
   for (const trialAccountId of Object.keys(accountSignatures)) {
     console.log(`Broadcasting transactions for account: ${trialAccountId}`);
 
-    const signatures = accountSignatures[trialAccountId];
+    const { signatures, nonces, blockHash } = accountSignatures[trialAccountId];
 
     // Load the trial account
     const trialAccount = await near.account(trialAccountId);
@@ -37,6 +35,8 @@ async function broadcastFromSignature() {
         signerAccount: trialAccount,
         actionToPerform: actionsToPerform[i],
         signatureResult: signatures[i],
+        nonce: nonces[i],
+        blockHash,
       });
     }
   }

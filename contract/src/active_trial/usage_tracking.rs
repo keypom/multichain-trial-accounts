@@ -1,3 +1,5 @@
+use near_sdk::json_types::Base58CryptoHash;
+
 // usage_tracking.rs
 use crate::*;
 
@@ -77,6 +79,8 @@ impl Contract {
         args: Vec<u8>,
         gas: Gas,
         deposit: U128,
+        nonce: U64,
+        block_hash: Base58CryptoHash,
     ) -> Promise {
         let (trial_data, key_usage) =
             self.assert_action_allowed(&method_name, &contract_id, gas, deposit);
@@ -100,12 +104,16 @@ impl Contract {
             gas,
             deposit,
             env::signer_account_pk(),
+            key_usage.mpc_key,
+            key_usage.account_id.clone().unwrap(),
             trial_data.chain_id,
+            nonce,
+            block_hash,
         )
         .as_return()
     }
 
-    /// Internal method to call the MPC contract.
+    // Modify `call_mpc_contract` to accept nonce and block_hash
     fn call_mpc_contract(
         &self,
         contract_id: AccountId,
@@ -114,28 +122,33 @@ impl Contract {
         gas: Gas,
         deposit: U128,
         public_key: PublicKey,
+        mpc_key: PublicKey,
+        mpc_account_id: AccountId,
         chain_id: u64,
+        nonce: U64,
+        block_hash: Base58CryptoHash,
     ) -> Promise {
-        let signer_pk = env::signer_account_pk();
-        env::log_str(&format!(
-            "Signer public key length: {}",
-            signer_pk.as_bytes().len()
-        ));
+        let actions = vec![OmniAction::FunctionCall(Box::new(OmniFunctionCallAction {
+            method_name: method_name.clone(),
+            args: args.clone(),
+            gas: OmniU64(gas.as_gas()),
+            deposit: OmniU128(deposit.into()),
+        }))];
+
+        // Log the details to compare with the transaction built in the JS code
+        near_sdk::log!(
+    "Signer: {:?}\n, Contract: {:?}\n, Method: {:?}\n, Args: {:?}\n, Gas: {:?}\n, Deposit: {:?}\n, Public Key: {:?}\n, MPC Key: {:?}\n, MPC Account: {:?}\n, Chain ID: {}\n, Nonce: {:?}\n, Block Hash: {:?}\n, Actions: {:?}\n", 
+        mpc_account_id, contract_id, method_name, args, gas, deposit, public_key, mpc_key, mpc_account_id, chain_id, nonce, block_hash, actions
+    );
+
         // Build the NEAR transaction
         let tx = TransactionBuilder::new::<NEAR>()
-            .signer_id(env::current_account_id().to_string())
-            .signer_public_key(convert_pk_to_omni(env::signer_account_pk()))
-            .nonce(0) // Replace with appropriate nonce
+            .signer_id(mpc_account_id.to_string())
+            .signer_public_key(convert_pk_to_omni(mpc_key))
+            .nonce(nonce.0) // Use the provided nonce
             .receiver_id(contract_id.clone().to_string())
-            .block_hash(OmniBlockHash([0u8; 32]))
-            .actions(vec![OmniAction::FunctionCall(Box::new(
-                OmniFunctionCallAction {
-                    method_name: method_name.clone(),
-                    args: args.clone(),
-                    gas: OmniU64(gas.as_gas()),
-                    deposit: OmniU128(deposit.into()),
-                },
-            ))])
+            .block_hash(OmniBlockHash(block_hash.into()))
+            .actions(actions)
             .build();
 
         let request_payload = create_sign_request_from_transaction(tx, public_key); // Call the helper

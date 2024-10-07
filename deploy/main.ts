@@ -1,6 +1,5 @@
 // main.ts
 
-import { UnencryptedFileSystemKeyStore } from "@near-js/keystores-node";
 import {
   deployTrialContract,
   createTrial,
@@ -60,14 +59,14 @@ async function main() {
   });
 
   // Perform actions and collect signatures
-  const accountSignatures: { [accountId: string]: string[][] } = {};
+  const accountSignatures: { [accountId: string]: any } = {};
 
   for (const trialKey of trialKeys) {
     const trialAccountId = trialKey.trialAccountId;
     const trialAccountSecretKey = trialKey.keyPair;
 
-    // Perform actions and get signatures
-    const signatures = await performActions({
+    // Perform actions and get signatures, nonces, and block hash
+    const { signatures, nonces, blockHash } = await performActions({
       config,
       near,
       trialAccountId,
@@ -76,7 +75,11 @@ async function main() {
       actionsToPerform,
     });
 
-    accountSignatures[trialAccountId] = signatures;
+    accountSignatures[trialAccountId] = {
+      signatures,
+      nonces,
+      blockHash,
+    };
   }
 
   // Write signatures mapping to file
