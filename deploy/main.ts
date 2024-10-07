@@ -43,7 +43,7 @@ async function main() {
     signerAccount,
     contractAccountId: trialContractId,
     trialId,
-    numberOfKeys: 1,
+    numberOfKeys: config.numberOfKeys,
     dataDir: config.dataDir,
   });
 

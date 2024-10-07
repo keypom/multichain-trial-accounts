@@ -200,17 +200,20 @@ export async function broadcastTransaction(
   const base58EncodedKeyData = bs58.encode(keyData);
   const publicKeyRecoveredString = `secp256k1:${base58EncodedKeyData}`;
 
-  console.log("Public Key recovered from signature:", publicKeyRecoveredString);
-
   // Expected public key from access key
   const expectedPublicKey = accessKeyForSigning.public_key;
-  console.log("Expected Public Key:", expectedPublicKey);
-
   // Compare the recovered public key with the expected public key
   const isSameKey = publicKeyRecoveredString === expectedPublicKey;
-  console.log(`Do the keys match? ${isSameKey}`);
 
   // Send the signed transaction
-  const result = await provider.sendTransaction(signedTransaction);
-  console.log("Transaction result:", result);
+  try {
+    const result = await provider.sendTransaction(signedTransaction);
+    console.log("Transaction Result:", result);
+  } catch (error) {
+    console.error(error);
+  }
+
+  console.log("Public Key On Account: ", expectedPublicKey);
+  console.log("Public Key Used for Signature:", publicKeyRecoveredString);
+  console.log(`Do the keys match? ${isSameKey}`);
 }

@@ -72,6 +72,7 @@ export interface Config {
   signerAccountId: string;
   keyStore: UnencryptedFileSystemKeyStore;
   mpcContractId: string;
+  numberOfKeys: number;
   dataDir: string;
 }
 
