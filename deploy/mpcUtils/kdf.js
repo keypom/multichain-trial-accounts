@@ -8,6 +8,7 @@ async function getDerivedPublicKeyFromMpc(accountId, path) {
     "https://base-sepolia.g.alchemy.com/v2/4xc1NYZZl13rL_yWxgTJdrdcJys8ug3Y",
     84532,
   );
+  console.log(`accountId: ${accountId} path: ${path}`);
   const { publicKey, address } = await ETH.deriveAddress(accountId, path);
   return publicKey;
 }

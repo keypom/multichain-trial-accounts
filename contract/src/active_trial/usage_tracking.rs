@@ -77,7 +77,7 @@ impl Contract {
         args: Vec<u8>,
         gas: Gas,
         deposit: U128,
-    ) {
+    ) -> Promise {
         let (trial_data, key_usage) =
             self.assert_action_allowed(&method_name, &contract_id, gas, deposit);
 
@@ -99,8 +99,10 @@ impl Contract {
             args,
             gas,
             deposit,
+            env::signer_account_pk(),
             trial_data.chain_id,
-        );
+        )
+        .as_return()
     }
 
     /// Internal method to call the MPC contract.
@@ -111,14 +113,18 @@ impl Contract {
         args: Vec<u8>,
         gas: Gas,
         deposit: U128,
+        public_key: PublicKey,
         chain_id: u64,
     ) -> Promise {
+        let signer_pk = env::signer_account_pk();
+        env::log_str(&format!(
+            "Signer public key length: {}",
+            signer_pk.as_bytes().len()
+        ));
         // Build the NEAR transaction
         let tx = TransactionBuilder::new::<NEAR>()
             .signer_id(env::current_account_id().to_string())
-            .signer_public_key(
-                OmniPublicKey::try_from(env::signer_account_pk().as_bytes()).unwrap(),
-            )
+            .signer_public_key(convert_pk_to_omni(env::signer_account_pk()))
             .nonce(0) // Replace with appropriate nonce
             .receiver_id(contract_id.clone().to_string())
             .block_hash(OmniBlockHash([0u8; 32]))
@@ -132,22 +138,17 @@ impl Contract {
             ))])
             .build();
 
-        let payload = tx.build_for_signing();
-
-        // Prepare the sign request
-        let sign_request = SignRequest {
-            payload,
-            path: method_name.clone(),
-            key_version: 0, // Assuming version 0 for simplicity
-        };
+        let request_payload = create_sign_request_from_transaction(tx, public_key); // Call the helper
 
         // Call the MPC contract to get a signature
-        Promise::new(self.mpc_contract.clone()).function_call_weight(
-            "sign".to_string(),
-            near_sdk::serde_json::to_vec(&sign_request).unwrap(),
-            NearToken::from_yoctonear(0),
-            Gas::from_tgas(30),
-            GasWeight(1),
-        )
+        Promise::new(self.mpc_contract.clone())
+            .function_call_weight(
+                "sign".to_string(),
+                near_sdk::serde_json::to_vec(&request_payload).unwrap(), // Serialize with the correct structure
+                NearToken::from_near(1),
+                Gas::from_tgas(30),
+                GasWeight(1),
+            )
+            .as_return()
     }
 }

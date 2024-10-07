@@ -219,6 +219,7 @@ dependencies = [
  "near-sdk",
  "omni-transaction",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

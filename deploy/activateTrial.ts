@@ -1,5 +1,5 @@
-import { Account } from "near-api-js";
 import { sendTransaction } from "./utils";
+import { Account } from "@near-js/accounts";
 
 export async function activateTrial(
   signerAccount: Account,
@@ -14,7 +14,7 @@ export async function activateTrial(
     receiverId: contractAccountId,
     methodName: "activate_trial",
     args: {
-      new_account_id: `${newAccountId}.testnet`,
+      new_account_id: newAccountId,
     },
     deposit: "0", // No deposit needed in this case
     gas: "300000000000000", // Adjust gas as needed

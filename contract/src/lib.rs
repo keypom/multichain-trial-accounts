@@ -24,6 +24,7 @@ pub mod internal;
 pub mod models;
 pub mod trial_management;
 
+pub use internal::*;
 pub use models::*;
 
 #[near(contract_state, serializers = [borsh])]

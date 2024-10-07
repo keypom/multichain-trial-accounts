@@ -1,3 +1,5 @@
+import { Account } from "@near-js/accounts";
+import { Near } from "@near-js/wallet-account";
 import { Config } from "./types";
 import { createAccountDeployContract } from "./utils";
 
@@ -8,8 +10,8 @@ export async function deployTrialContract({
   mpcContractId,
   config,
 }: {
-  near: any;
-  signerAccount: any;
+  near: Near;
+  signerAccount: Account;
   config: Config;
   contractAccountId: string;
   mpcContractId: string;

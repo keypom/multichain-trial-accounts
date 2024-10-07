@@ -1,14 +1,22 @@
 import { Config } from "./types";
-import { initNear, setContractFullAccessKey, updateConfigFile } from "./utils";
+import {
+  initNear,
+  readKeysFromFile,
+  readSignatureFromFile,
+  setContractFullAccessKey,
+  updateConfigFile,
+  writeKeysToFile,
+  writeSignatureToFile,
+} from "./utils";
 import fs from "fs";
 import path from "path";
 import { deployTrialContract } from "./createContract";
 import { createTrial } from "./createTrial";
-import { performAction } from "./performAction";
+import { broadcastSignedTransaction, performAction } from "./performAction";
 import { addTrialKeys } from "./addTrialKeys";
 import { activateTrial } from "./activateTrial";
-import { KeyPair } from "near-api-js";
 import { ACTION_PERFORMED } from "./dev/config";
+import { KeyPair, KeyPairString } from "@near-js/crypto";
 
 // Get the environment (dev or prod) from the command-line arguments
 const env = process.argv[2] || "dev"; // Default to "dev" if no argument is provided
@@ -21,15 +29,6 @@ const loadConfig = async (env: string) => {
   return {
     config,
   };
-};
-
-const writeKeysToFile = (keys: KeyPair[], trialId: number, dataDir: string) => {
-  const filePath = path.join(dataDir, `trial_keys_${trialId}.csv`);
-  const keyData = keys
-    .map((kp) => `${kp.getPublicKey().toString()},${kp.toString()}`)
-    .join("\n");
-  fs.writeFileSync(filePath, keyData);
-  console.log(`Trial keys saved to ${filePath}`);
 };
 
 const main = async () => {
@@ -58,6 +57,33 @@ const main = async () => {
   }
 
   let contractAccountId = EXISTING_TRIAL_CONTRACT;
+
+  // If `broadcastOnly` is set in the config, get the first trial key and set it as the signer account
+  if (CREATION_CONFIG.broadcastOnly) {
+    console.log("Broadcasting saved signature...");
+
+    // Step 1: Read the trial keys from the file (assuming trialId is known or can be fetched from config)
+    const trialId = 1;
+    const keysMapping = readKeysFromFile(dataDir, trialId);
+    const accountId = Object.keys(keysMapping)[0];
+    const firstTrialKey = keysMapping[accountId];
+
+    if (!firstTrialKey) {
+      throw new Error("No trial keys found to use for broadcasting.");
+    }
+
+    // Step 2: Set the signer account to the trial account using the first trial key
+    signerAccount = await near.account(accountId); // Now use the trial account for signing
+
+    // Step 3: Read the saved signature from the file
+    const sigRes = readSignatureFromFile(dataDir);
+
+    // Step 4: Broadcast the transaction using the trial key account
+    await broadcastSignedTransaction(signerAccount, ACTION_PERFORMED, sigRes);
+
+    console.log("Broadcast complete using trial account.");
+    return;
+  }
 
   // Step 1: Deploy Contract (if required)
   if (CREATION_CONFIG.deployContract) {
@@ -90,69 +116,82 @@ const main = async () => {
         contractAccountId,
         trialId,
         NUM_TRIAL_KEYS,
+        dataDir,
       );
-
-      // Write keys to file
-      writeKeysToFile(keyPairs, trialId, dataDir);
       console.log(`Trial keys added: ${keyPairs.length} keys`);
     }
 
     // Step 4: Activate trial accounts (if applicable)
     if (CREATION_CONFIG.premadeTrialAccounts) {
-      const premadeAccounts = [Date.now().toString() + "-premade-1"];
+      // Read the keys file to get the trial account IDs and corresponding key data
+      const trialKeysMapping = readKeysFromFile(dataDir, trialId);
+      console.log("Trial keys mapping:", trialKeysMapping);
 
-      // Read the trial keys from the file
-      const trialKeysPath = path.join(dataDir, `trial_keys_${trialId}.csv`);
-      if (!fs.existsSync(trialKeysPath)) {
-        throw new Error(`Trial keys file not found: ${trialKeysPath}`);
-      }
-      const keyData = fs.readFileSync(trialKeysPath, "utf-8");
-      const keys = keyData.split("\n").map((line) => {
-        const [publicKey, secretKey] = line.split(",");
-        return KeyPair.fromString(secretKey);
-      });
+      // Get the list of trial account IDs (keys from the mapping)
+      const trialAccountIds = Object.keys(trialKeysMapping);
 
-      // Use the first trial key for the performAction call
-      const trialKey = keys[0];
-      const keyStore = near.connection.signer.keyStore;
-      await keyStore.setKey(GLOBAL_NETWORK, contractAccountId, trialKey);
+      // Use the first trial account for the performAction call
+      const firstTrialAccountId = trialAccountIds[0];
+      const trialKeyData = trialKeysMapping[firstTrialAccountId];
+      const trialKey = trialKeyData.secretKey;
+
+      const keyStore: any = (near.connection.signer as any).keyStore;
+      await keyStore.setKey(
+        GLOBAL_NETWORK,
+        contractAccountId,
+        KeyPair.fromString(trialKey as KeyPairString),
+      );
       signerAccount = await near.account(contractAccountId);
 
-      for (const accountId of premadeAccounts) {
+      // Activate all premade accounts
+      for (const accountId of trialAccountIds) {
         await activateTrial(signerAccount, contractAccountId, accountId);
         console.log(`Activated trial account: ${accountId}`);
       }
     }
-  }
 
-  // Step 5: Perform action using one of the trial keys
-  if (CREATION_CONFIG.performAction && trialId) {
-    const trialKeysPath = path.join(dataDir, `trial_keys_${trialId}.csv`);
-    if (!fs.existsSync(trialKeysPath)) {
-      throw new Error(`Trial keys file not found: ${trialKeysPath}`);
+    // Step 5: Perform action using one of the trial keys
+    if (CREATION_CONFIG.performAction && trialId) {
+      // Read the keys file to get the trial account IDs and corresponding key data
+      const trialKeysMapping = readKeysFromFile(dataDir, trialId);
+      console.log("Trial keys mapping:", trialKeysMapping);
+
+      // Get the list of trial account IDs (keys from the mapping)
+      const trialAccountIds = Object.keys(trialKeysMapping);
+
+      // Use the first trial account for the performAction call
+      const firstTrialAccountId = trialAccountIds[0];
+      const trialKeyData = trialKeysMapping[firstTrialAccountId];
+      const trialKey = trialKeyData.secretKey;
+
+      const keyStore: any = (near.connection.signer as any).keyStore;
+      await keyStore.setKey(
+        GLOBAL_NETWORK,
+        contractAccountId,
+        KeyPair.fromString(trialKey as KeyPairString),
+      );
+      signerAccount = await near.account(contractAccountId);
+
+      // Perform action with the trial key
+      const sigRes: string[] = await performAction(
+        signerAccount, // This will now use the trial key for signing
+        contractAccountId,
+        ACTION_PERFORMED,
+      );
+      console.log("Signature: ", sigRes);
+
+      // Write signature to file for future broadcasting
+      writeSignatureToFile(sigRes, dataDir);
+
+      console.log("Broadcasting saved signature...");
+
+      // Step 2: Set the signer account to the trial account using the first trial key
+      signerAccount = await near.account(firstTrialAccountId); // Now use the trial account for signing
+
+      await broadcastSignedTransaction(signerAccount, ACTION_PERFORMED, sigRes);
+
+      console.log("Action performed successfully with trial key");
     }
-
-    // Read the trial keys from the file
-    const keyData = fs.readFileSync(trialKeysPath, "utf-8");
-    const keys = keyData.split("\n").map((line) => {
-      const [publicKey, secretKey] = line.split(",");
-      return KeyPair.fromString(secretKey);
-    });
-
-    // Use the first trial key for the performAction call
-    const trialKey = keys[0];
-    const keyStore = near.connection.signer.keyStore;
-    await keyStore.setKey(GLOBAL_NETWORK, contractAccountId, trialKey);
-    signerAccount = await near.account(contractAccountId);
-
-    // Perform action with the trial key
-    await performAction(
-      signerAccount, // This will now use the trial key for signing
-      contractAccountId,
-      ACTION_PERFORMED,
-    );
-
-    console.log("Action performed successfully with trial key");
   }
 
   // Reset the key in the file system to be a full access key (if needed)

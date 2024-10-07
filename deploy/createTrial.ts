@@ -1,6 +1,7 @@
 // createTrial.ts
 
-import { Account, utils } from "near-api-js";
+import { Account } from "@near-js/accounts";
+import { parseNearAmount } from "@near-js/utils";
 import { TrialData } from "./types";
 import { sendTransaction } from "./utils";
 
@@ -25,9 +26,7 @@ export async function createTrial(
   console.log("Creating trial...");
 
   // Convert camelCase trialData to snake_case, including nested objects
-  trialData.initialDeposit = utils.format.parseNearAmount(
-    trialData.initialDeposit,
-  )!;
+  trialData.initialDeposit = parseNearAmount(trialData.initialDeposit)!;
   const snakeCaseArgs = toSnakeCase(trialData);
 
   const result = await sendTransaction({

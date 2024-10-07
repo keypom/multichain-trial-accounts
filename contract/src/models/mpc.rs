@@ -4,7 +4,7 @@ use crate::*;
 #[derive(Clone)]
 #[near(serializers = [json, borsh])]
 pub struct SignRequest {
-    pub payload: Vec<u8>,
+    pub payload: [u8; 32],
     pub path: String, // Derivation path
     pub key_version: u32,
 }

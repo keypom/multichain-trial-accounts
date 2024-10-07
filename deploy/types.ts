@@ -47,6 +47,7 @@ export interface TrialData {
 
 // Configuration types
 export interface CreationConfig {
+  broadcastOnly: boolean;
   deployContract: boolean;
   createNewTrial: boolean;
   addTrialAccounts: boolean;
@@ -68,6 +69,13 @@ export interface Config {
 export interface PremadeTicket {
   name: string;
   email: string;
+}
+
+export interface KeyData {
+  publicKey: string;
+  secretKey: string;
+  trialId: number;
+  mpcKey: string;
 }
 
 export type PremadeTicketData = PremadeTicket[];
