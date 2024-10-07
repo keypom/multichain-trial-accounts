@@ -1,6 +1,6 @@
 // activateTrial.ts
 
-import { KeyPair } from "@near-js/crypto";
+import { KeyPair, KeyPairString } from "@near-js/crypto";
 import { Near } from "@near-js/wallet-account";
 import { Config } from "./types";
 import { sendTransaction } from "./utils";
@@ -10,7 +10,7 @@ interface ActivateTrialAccountsParams {
   config: Config;
   contractAccountId: string;
   trialAccountIds: string[];
-  trialAccountSecretKeys: KeyPair[];
+  trialAccountSecretKeys: KeyPairString[];
 }
 
 /**
@@ -40,7 +40,11 @@ export async function activateTrialAccounts(
 
     // Set the trial key in the keyStore
     const keyStore: any = (near.connection.signer as any).keyStore;
-    await keyStore.setKey(config.networkId, contractAccountId, trialKey);
+    await keyStore.setKey(
+      config.networkId,
+      contractAccountId,
+      KeyPair.fromString(trialKey),
+    );
     const signerAccount = await near.account(contractAccountId);
 
     const result = await sendTransaction({

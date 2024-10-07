@@ -137,9 +137,21 @@ impl Contract {
 
         // Log the details to compare with the transaction built in the JS code
         near_sdk::log!(
-    "Signer: {:?}\n, Contract: {:?}\n, Method: {:?}\n, Args: {:?}\n, Gas: {:?}\n, Deposit: {:?}\n, Public Key: {:?}\n, MPC Key: {:?}\n, MPC Account: {:?}\n, Chain ID: {}\n, Nonce: {:?}\n, Block Hash: {:?}\n, Actions: {:?}\n", 
-        mpc_account_id, contract_id, method_name, args, gas, deposit, public_key, mpc_key, mpc_account_id, chain_id, nonce, block_hash, actions
-    );
+            "Signer: {:?}, Contract: {:?}, Method: {:?}, Args: {:?}, Gas: {:?}, Deposit: {:?}, Public Key: {:?}, MPC Key: {:?}, MPC Account: {:?}, Chain ID: {}, Nonce: {:?}, Block Hash: {:?}, Actions: {:?}",
+            mpc_account_id,
+            contract_id,
+            method_name,
+            args,
+            gas,
+            deposit,
+            public_key,
+            mpc_key,
+            mpc_account_id,
+            chain_id,
+            nonce,
+            block_hash,
+            actions
+        );
 
         // Build the NEAR transaction
         let tx = TransactionBuilder::new::<NEAR>()

@@ -1,6 +1,6 @@
 // types.ts
 
-import { KeyPair } from "@near-js/crypto";
+import { KeyPair, KeyPairString } from "@near-js/crypto";
 import { UnencryptedFileSystemKeyStore } from "@near-js/keystores-node";
 
 /**
@@ -92,6 +92,7 @@ export interface KeyData {
 export interface TrialKey {
   trialAccountId: string;
   derivationPath: string;
-  keyPair: KeyPair;
+  trialAccountSecretKey: KeyPairString;
+  trialAccountPublicKey: string;
   mpcKey: string;
 }

@@ -48,7 +48,9 @@ async function main() {
 
   // Activate trial accounts
   const trialAccountIds = trialKeys.map((tk) => tk.trialAccountId);
-  const trialAccountSecretKeys = trialKeys.map((tk) => tk.keyPair);
+  const trialAccountSecretKeys = trialKeys.map(
+    (tk) => tk.trialAccountSecretKey,
+  );
 
   await activateTrialAccounts({
     config,
@@ -63,7 +65,7 @@ async function main() {
 
   for (const trialKey of trialKeys) {
     const trialAccountId = trialKey.trialAccountId;
-    const trialAccountSecretKey = trialKey.keyPair;
+    const trialAccountSecretKey = trialKey.trialAccountSecretKey;
 
     // Perform actions and get signatures, nonces, and block hash
     const { signatures, nonces, blockHash } = await performActions({

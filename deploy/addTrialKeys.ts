@@ -52,14 +52,15 @@ export async function addTrialAccounts(
     trialKeys.push({
       trialAccountId,
       derivationPath,
-      keyPair,
+      trialAccountSecretKey: keyPair.toString(),
+      trialAccountPublicKey: keyPair.getPublicKey().toString(),
       mpcKey: mpcPublicKey,
     });
   }
 
   // Prepare data to send to the contract
   const keysWithMpc = trialKeys.map((trialKey) => ({
-    public_key: trialKey.keyPair.getPublicKey().toString(),
+    public_key: trialKey.trialAccountPublicKey,
     mpc_key: trialKey.mpcKey,
   }));
 
