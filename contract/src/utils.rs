@@ -1,26 +1,23 @@
-// internal.rs
-use crate::*;
+// utils.rs
 
-use near_sdk::CurveType;
-use omni_transaction::near::{
-    near_transaction::NearTransaction,
-    types::{
-        ED25519PublicKey as OmniEd25519PublicKey, Secp256K1PublicKey as OmniSecp256K1PublicKey,
-    },
+use crate::*;
+use near_sdk::{env, CurveType, PublicKey};
+use omni_transaction::near::types::{
+    ED25519PublicKey as OmniEd25519PublicKey, PublicKey as OmniPublicKey,
+    Secp256K1PublicKey as OmniSECP256K1PublicKey,
 };
 use sha2::{Digest, Sha256};
 
-pub fn convert_pk_to_omni(pk: PublicKey) -> OmniPublicKey {
+/// Converts a NEAR `PublicKey` to an OmniTransaction `PublicKey`.
+pub fn convert_pk_to_omni(pk: &PublicKey) -> OmniPublicKey {
     // First byte is the curve type
-    let curve_type = pk.as_bytes()[0];
+    let curve_type = pk.curve_type();
 
     // Remaining bytes are the actual public key data
     let public_key_data = &pk.as_bytes()[1..];
 
-    // Match the curve type and convert the public key accordingly
     match curve_type {
-        0 => {
-            // ED25519 key (32 bytes expected)
+        CurveType::ED25519 => {
             if public_key_data.len() == ED25519_PUBLIC_KEY_LENGTH {
                 let ed25519_key: [u8; ED25519_PUBLIC_KEY_LENGTH] = public_key_data
                     .try_into()
@@ -31,24 +28,21 @@ pub fn convert_pk_to_omni(pk: PublicKey) -> OmniPublicKey {
                 env::panic_str("Invalid ED25519 public key length");
             }
         }
-        1 => {
-            // SECP256K1 key (64 bytes expected)
+        CurveType::SECP256K1 => {
             if public_key_data.len() == SECP256K1_PUBLIC_KEY_LENGTH {
                 let secp256k1_key: [u8; SECP256K1_PUBLIC_KEY_LENGTH] = public_key_data
                     .try_into()
                     .expect("Failed to convert SECP256K1 public key");
 
-                OmniPublicKey::SECP256K1(OmniSecp256K1PublicKey::from(secp256k1_key))
+                OmniPublicKey::SECP256K1(OmniSECP256K1PublicKey::from(secp256k1_key))
             } else {
                 env::panic_str("Invalid SECP256K1 public key length");
             }
         }
-        _ => {
-            env::panic_str("Unsupported curve type");
-        }
     }
 }
 
+/// Converts a `PublicKey` to a string representation.
 pub fn public_key_to_string(public_key: &PublicKey) -> String {
     let curve_type = public_key.curve_type();
     let encoded = bs58::encode(&public_key.as_bytes()[1..]).into_string(); // Skipping the first byte which is the curve type
@@ -58,7 +52,7 @@ pub fn public_key_to_string(public_key: &PublicKey) -> String {
     }
 }
 
-// Helper function to hash a payload to 32 bytes
+/// Hashes a payload using SHA256 and returns a 32-byte array.
 pub fn hash_payload(payload: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(payload);
@@ -66,22 +60,20 @@ pub fn hash_payload(payload: &[u8]) -> [u8; 32] {
     result.into() // Converts the resulting hash into a [u8; 32] array
 }
 
-// Main helper function to create the sign request
+/// Creates a sign request from a hashed payload and public key.
 pub fn create_sign_request_from_transaction(
     hashed_payload: [u8; 32],
-    public_key: PublicKey,
+    path: &PublicKey,
 ) -> serde_json::Value {
     // Create the sign request with the hashed payload
     let sign_request = SignRequest {
-        payload: hashed_payload, // Convert [u8; 32] to Vec<u8> for SignRequest
-        path: public_key_to_string(&public_key), // Assuming public_key_to_string is defined somewhere
-        key_version: 0,                          // Modify this as needed
+        payload: hashed_payload.to_vec(), // Convert [u8; 32] to Vec<u8>
+        path: public_key_to_string(path),
+        key_version: 0, // Modify this as needed
     };
 
     // Wrap the sign request into the expected structure
-    let request_payload = serde_json::json!({ "request": sign_request });
-
-    request_payload
+    serde_json::json!({ "request": sign_request })
 }
 
 #[near]

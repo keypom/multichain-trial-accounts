@@ -1,8 +1,13 @@
-// Access key methods name for trial accounts
+// models/constants.rs
+/// Access key methods name for trial accounts
 pub const TRIAL_ACCESS_KEY_METHODS: &str =
-    "create_account,call_function,exit_trial,activate_trial,perform_action";
+    "create_trial,activate_trial,delete_trial,add_trial_keys,perform_action,exit_trial";
 
 /// Length of an Ed25519 public key
 pub const ED25519_PUBLIC_KEY_LENGTH: usize = 32;
-/// Length of a secp256k1 public key
+
+/// Length of a SECP256K1 public key
 pub const SECP256K1_PUBLIC_KEY_LENGTH: usize = 64;
+
+/// Type alias for Trial IDs
+pub type TrialId = u32;

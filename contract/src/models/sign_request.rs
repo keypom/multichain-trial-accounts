@@ -1,10 +1,11 @@
+// models/sign_request.rs
 use crate::*;
 
-// models.rs or types.rs
+/// Represents a sign request sent to the MPC contract.
 #[derive(Clone)]
 #[near(serializers = [json, borsh])]
 pub struct SignRequest {
-    pub payload: [u8; 32],
+    pub payload: Vec<u8>,
     pub path: String, // Derivation path
     pub key_version: u32,
 }

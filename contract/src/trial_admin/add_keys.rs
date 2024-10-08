@@ -1,3 +1,4 @@
+// key_management/add_keys.rs
 use crate::*;
 
 #[near]
@@ -12,9 +13,8 @@ impl Contract {
             .expect("Trial ID does not exist");
 
         // Only the creator can add keys to their trial
-        assert_eq!(
-            env::predecessor_account_id(),
-            trial_data.creator_account_id,
+        require!(
+            env::predecessor_account_id() == trial_data.creator_account_id,
             "Only the trial creator can add keys"
         );
 
@@ -45,6 +45,7 @@ impl Contract {
             );
         }
 
+        self.key_usage_by_pk.flush();
         // Adjust the deposit based on storage usage
         self.adjust_deposit(initial_storage, env::storage_usage());
     }

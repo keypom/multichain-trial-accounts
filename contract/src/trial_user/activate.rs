@@ -1,8 +1,6 @@
-use std::str::FromStr;
-
+// trial/activate.rs
 use crate::*;
 
-/// Options for `create_account_advanced`.
 #[derive(Clone)]
 #[near(serializers = [json, borsh])]
 pub struct CreateAccountOptions {
@@ -22,16 +20,17 @@ impl Contract {
     /// Only the trial creator can activate the trial.
     #[payable]
     pub fn activate_trial(&mut self, new_account_id: AccountId) -> Promise {
-        // Get the stored key usage data for the trial, which contains the MPC public key
+        let signer_pk = env::signer_account_pk();
         let key_usage = self
             .key_usage_by_pk
-            .get_mut(&env::signer_account_pk())
+            .get_mut(&signer_pk)
             .expect("No key usage data found for this trial");
 
         require!(
             key_usage.account_id.is_none(),
             "The trial has already been activated"
         );
+
         key_usage.account_id = Some(new_account_id.clone());
 
         let trial_id = key_usage.trial_id;
@@ -48,13 +47,13 @@ impl Contract {
             options: CreateAccountOptions {
                 full_access_keys: Some(vec![mpc_public_key]),
             },
-            new_account_id,
+            new_account_id: new_account_id.clone(),
         };
 
-        // Call the MPC contract to get a signature
-        Promise::new(AccountId::from_str("testnet").unwrap()).function_call_weight(
+        let root_account: AccountId = "testnet".parse().unwrap();
+        Promise::new(root_account).function_call_weight(
             "create_account_advanced".to_string(),
-            near_sdk::serde_json::to_vec(&account_options).unwrap(),
+            serde_json::to_vec(&account_options).unwrap(),
             NearToken::from_yoctonear(trial_data.initial_deposit.as_yoctonear()),
             Gas::from_tgas(30),
             GasWeight(1),

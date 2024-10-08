@@ -7,5 +7,3 @@ pub enum StorageKeys {
     TrialDataById,
     KeyUsageByPK,
 }
-
-pub type TrialId = u32;

@@ -17,6 +17,7 @@ export { activateTrialAccounts } from "./activateTrial";
 export { performActions } from "./performAction";
 export { broadcastTransaction } from "./broadcastTransaction";
 export { initNear } from "./nearUtils";
+export { retryAsync } from "./cryptoUtils";
 
 // Export types for user convenience
 export * from "./types";

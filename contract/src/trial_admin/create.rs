@@ -1,16 +1,26 @@
-// trial_management/create_trial.rs
+// trial/create.rs
 use crate::*;
 
 #[near]
 impl Contract {
     /// Creates a new trial with specified parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `allowed_methods` - A list of method names that are allowed in the trial.
+    /// * `allowed_contracts` - A list of contracts that can be interacted with during the trial.
+    /// * `initial_deposit` - The initial deposit amount in NEAR tokens.
+    ///
+    /// # Returns
+    ///
+    /// Returns the unique identifier for the newly created trial.
     #[payable]
     pub fn create_trial(
         &mut self,
         allowed_methods: Vec<String>,
         allowed_contracts: Vec<AccountId>,
-        max_gas: Option<u64>,
-        max_deposit: Option<U128>,
+        max_gas: Option<Gas>,
+        max_deposit: Option<NearToken>,
         usage_constraints: Option<UsageConstraints>,
         interaction_limits: Option<InteractionLimits>,
         exit_conditions: Option<ExitConditions>,
@@ -40,8 +50,15 @@ impl Contract {
         let trial_id = self.trial_nonce;
 
         self.trial_data_by_id.insert(trial_id, trial_data);
+        self.trial_data_by_id.flush();
 
         self.adjust_deposit(initial_storage, env::storage_usage());
+
+        env::log_str(&format!(
+            "Trial {} created by {}",
+            trial_id,
+            env::predecessor_account_id()
+        ));
 
         trial_id
     }

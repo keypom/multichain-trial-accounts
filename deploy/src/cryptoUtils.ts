@@ -8,6 +8,46 @@ import { Signature } from "@near-js/transactions";
 import { MPCSignature } from "./types";
 
 /**
+ * Helper function to retry an async operation with exponential backoff.
+ *
+ * @param fn - The async function to retry.
+ * @param retries - Number of retries.
+ * @param delay - Initial delay in milliseconds.
+ * @param factor - Multiplicative factor for delay.
+ * @returns The result of the async function if successful.
+ * @throws The last error encountered if all retries fail.
+ */
+export async function retryAsync<T>(
+  fn: () => Promise<T>,
+  retries: number = 3,
+  delay: number = 1000,
+  factor: number = 2,
+): Promise<T> {
+  let attempt = 0;
+  let currentDelay = delay;
+
+  while (attempt < retries) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      attempt++;
+      if (attempt >= retries) {
+        throw error;
+      }
+      console.warn(
+        `Attempt ${attempt} failed. Retrying in ${currentDelay}ms...`,
+        `Error: ${error.message || error}`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, currentDelay));
+      currentDelay *= factor; // Exponential backoff
+    }
+  }
+
+  // This point should never be reached
+  throw new Error("Unexpected error in retryAsync");
+}
+
+/**
  * Recovers the public key from a signature and message hash.
  * @param msgHash - The hash of the message.
  * @param signature - The signature components { r, s }.

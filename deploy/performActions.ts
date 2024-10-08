@@ -4,6 +4,7 @@ import {
   initNear,
   performActions as performActionsFunction,
   TrialDataFile,
+  retryAsync,
 } from "./src/index";
 import fs from "fs";
 import path from "path";
@@ -30,6 +31,11 @@ async function performActions() {
   // Initialize an object to store signatures, nonces, and block hashes
   const accountSignatures: { [accountId: string]: any } = {};
 
+  // Configuration for retry logic
+  const MAX_RETRIES = 10;
+  const INITIAL_DELAY_MS = 2000; // 2 second
+  const BACKOFF_FACTOR = 2; // Exponential backoff factor
+
   // Iterate over each trial account to perform actions
   for (const trialKey of trialKeys) {
     const {
@@ -38,25 +44,43 @@ async function performActions() {
       mpcKey,
       trialAccountPublicKey,
     } = trialKey;
-    console.log(`Performing actions for account: ${trialAccountId}`);
+    console.log(`\nPerforming actions for account: ${trialAccountId}`);
 
-    // Perform actions and get signatures, nonces, and block hash
-    const { signatures, nonces, blockHash } = await performActionsFunction({
-      config,
-      near,
-      trialAccountId,
-      trialAccountSecretKey,
-      contractAccountId: trialContractId,
-      actionsToPerform,
-    });
+    try {
+      // Wrap performActionsFunction with retry logic
+      const { signatures, nonces, blockHash }: any = await retryAsync(
+        () =>
+          performActionsFunction({
+            config,
+            near,
+            trialAccountId,
+            trialAccountSecretKey,
+            contractAccountId: trialContractId,
+            actionsToPerform,
+          }),
+        MAX_RETRIES,
+        INITIAL_DELAY_MS,
+        BACKOFF_FACTOR,
+      );
 
-    accountSignatures[trialAccountId] = {
-      signatures,
-      nonces,
-      blockHash,
-      mpcPublicKey: mpcKey,
-      trialAccountPublicKey,
-    };
+      accountSignatures[trialAccountId] = {
+        signatures,
+        nonces,
+        blockHash,
+        mpcPublicKey: mpcKey,
+        trialAccountPublicKey,
+      };
+
+      console.log(`✅ Actions performed successfully for ${trialAccountId}`);
+    } catch (error: any) {
+      console.error(
+        `❌ Failed to perform actions for account ${trialAccountId} after ${MAX_RETRIES} attempts.`,
+        `Error: ${error.message || error}`,
+      );
+      // Optionally, you can decide to continue or halt based on the failure
+      // For now, we'll continue with the next account
+      continue;
+    }
   }
 
   // Write signatures mapping to file
@@ -65,9 +89,10 @@ async function performActions() {
     signaturesFilePath,
     JSON.stringify(accountSignatures, null, 2),
   );
-  console.log(`Signatures written to ${signaturesFilePath}`);
+  console.log(`\n📄 Signatures written to ${signaturesFilePath}`);
 }
 
+// Execute the performActions function and handle any unexpected errors
 performActions().catch((error) => {
-  console.error("Error in performActions:", error);
+  console.error("⚠️ Error in performActions:", error);
 });

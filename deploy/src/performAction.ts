@@ -1,25 +1,12 @@
 // performAction.ts
 
-import { Account } from "@near-js/accounts";
 import { sendTransaction } from "./nearUtils";
-import { ActionToPerform, Config, TrialData } from "./types";
+import { ActionToPerform, Config } from "./types";
 import fs from "fs";
 import path from "path";
 import { parseNearAmount } from "@near-js/utils";
-import { KeyPair, KeyPairString, KeyType, PublicKey } from "@near-js/crypto";
-import {
-  Action,
-  actionCreators,
-  createTransaction,
-  Signature,
-  SignedTransaction,
-} from "@near-js/transactions";
+import { KeyPair, KeyPairString } from "@near-js/crypto";
 import { Near } from "@near-js/wallet-account";
-import { ec as EC } from "elliptic";
-
-import { sha256 } from "js-sha256";
-import * as crypto from "crypto";
-import bs58 from "bs58";
 import { extractLogsFromResult, parseContractLog } from "./logUtils";
 
 interface PerformActionsParams {
@@ -88,6 +75,7 @@ export async function performActions(
       receiverId: contractAccountId,
       methodName: "perform_action",
       args: {
+        chain: "NEAR",
         contract_id: targetContractId,
         method_name: methodName,
         args: serializedArgs,

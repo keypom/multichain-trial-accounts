@@ -34,7 +34,7 @@ export async function createTrial(params: CreateTrialParams): Promise<number> {
     receiverId: contractAccountId,
     methodName: "create_trial",
     args: snakeCaseArgs,
-    deposit: "0",
+    deposit: "1",
     gas: "300000000000000",
   });
 
