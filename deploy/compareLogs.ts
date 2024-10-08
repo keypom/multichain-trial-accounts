@@ -84,6 +84,16 @@ function compareLogs() {
     Array.from(jsBlockHashDecoded),
   );
 
+  logInfo("\nComparing TxHash...");
+  if (contractLog["TxHash"] && jsLog.txHash) {
+    const contractTxHashArray = contractLog["TxHash"];
+    const jsTxHashHex = jsLog.txHash; // Assuming jsLog.txHash is a hex string
+
+    compareAndLog("TxHash", contractTxHashArray, jsTxHashHex, undefined);
+  } else {
+    logInfo("TxHash missing in logs.");
+  }
+
   logInfo("\nComparing Actions...");
   compareActions(contractLog.Actions, jsLog.actions);
 

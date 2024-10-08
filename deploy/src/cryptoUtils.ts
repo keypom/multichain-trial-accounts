@@ -5,6 +5,7 @@ import { KeyType } from "@near-js/crypto";
 import bs58 from "bs58";
 import { sha256 } from "js-sha256";
 import { Signature } from "@near-js/transactions";
+import { MPCSignature } from "./types";
 
 /**
  * Recovers the public key from a signature and message hash.
@@ -15,30 +16,21 @@ import { Signature } from "@near-js/transactions";
  */
 export function recoverPublicKeyFromSignature(
   msgHash: Uint8Array,
-  signature: { r: Buffer; s: Buffer },
-  recoveryId: number,
+  signature: MPCSignature,
 ): EC.KeyPair {
   const ec = new EC("secp256k1");
-
-  // Ensure recovery ID is within 0-3
-  if (recoveryId < 0 || recoveryId > 3) {
-    throw new Error(`Invalid recovery ID: ${recoveryId}`);
-  }
-
-  // Convert message hash to Buffer
-  const msgHashBuffer = Buffer.from(msgHash);
-
-  // Recover the public key point
-  const recoveredPubPoint = ec.recoverPubKey(
-    msgHashBuffer,
-    { r: signature.r, s: signature.s },
-    recoveryId,
+  let pubKeyRecovered = ec.recoverPubKey(
+    msgHash,
+    {
+      r: Buffer.from(signature.big_r.affine_point.substring(2), "hex"),
+      s: Buffer.from(signature.s.scalar, "hex"),
+    },
+    signature.recovery_id,
+    "hex",
   );
 
-  // Create a KeyPair from the recovered public key point
-  const recoveredKeyPair = ec.keyFromPublic(recoveredPubPoint);
-
-  return recoveredKeyPair;
+  console.log("pubKeyRecovered", pubKeyRecovered.encode("hex"));
+  return pubKeyRecovered;
 }
 
 /**
@@ -59,18 +51,16 @@ export function compressPublicKey(publicKeyBytes: Buffer): Buffer {
  * Creates a NEAR Signature object from r, s, and recovery ID.
  * @param r - The r component of the signature.
  * @param s - The s component of the signature.
- * @param recoveryId - The recovery ID.
  * @returns A NEAR Signature object.
  */
-export function createSignature(
-  r: Buffer,
-  s: Buffer,
-  recoveryId: number,
-): Signature {
-  const combinedSignature = Buffer.concat([r, s, Buffer.from([recoveryId])]);
+export function createSignature(r: string, s: string): Signature {
   return new Signature({
     keyType: KeyType.SECP256K1,
-    data: combinedSignature,
+    data: Buffer.concat([
+      Buffer.from(r.substring(2), "hex"),
+      Buffer.from(s, "hex"),
+      Buffer.from(r.substring(0, 2), "hex"),
+    ]),
   });
 }
 

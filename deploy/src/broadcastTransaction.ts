@@ -19,13 +19,13 @@ import {
   hashTransaction,
   parsePublicKey,
 } from "./cryptoUtils";
-import { ActionToPerform } from "./types";
+import { ActionToPerform, MPCSignature } from "./types";
 import { logError, logInfo, logSuccess } from "./logUtils";
 
 interface BroadcastTransactionParams {
   signerAccount: Account;
   actionToPerform: ActionToPerform;
-  signatureResult: string[]; // Signature result from the MPC
+  signatureResult: MPCSignature; // Signature result from the MPC
   nonce: string;
   blockHash: string;
   mpcPublicKey: string; // Add this parameter
@@ -87,6 +87,21 @@ export async function broadcastTransaction(
   ];
 
   // Collect the broadcast logs into an object
+
+  // Create the transaction
+  const transaction = createTransaction(
+    signerAccount.accountId,
+    PublicKey.fromString(mpcPublicKey), // Use MPC public key
+    targetContractId,
+    nonce,
+    actions,
+    blockHashBytes,
+  );
+
+  // Hash the transaction to get the message to sign
+  const serializedTx = transaction.encode();
+  const txHash = hashTransaction(serializedTx);
+
   const broadcastLog = {
     signerAccount: signerAccount.accountId,
     targetContract: targetContractId,
@@ -98,6 +113,7 @@ export async function broadcastTransaction(
     mpcPublicKey,
     nonce,
     blockHash,
+    txHash: Array.from(txHash), // Add TxHash here
     actions: actions.map((action) => {
       if (action.functionCall) {
         return {
@@ -115,42 +131,14 @@ export async function broadcastTransaction(
   const logsFilePath = path.join("data", `broadcast_logs.json`);
   fs.writeFileSync(logsFilePath, JSON.stringify(broadcastLog, null, 2));
 
-  // Create the transaction
-  const transaction = createTransaction(
-    signerAccount.accountId,
-    PublicKey.fromString(mpcPublicKey), // Use MPC public key
-    targetContractId,
-    nonce,
-    actions,
-    blockHashBytes,
-  );
-
-  // Hash the transaction to get the message to sign
-  const serializedTx = transaction.encode();
-  const txHash = hashTransaction(serializedTx);
-
   // Log transaction hash
   logInfo(`=== Transaction Details ===`);
   console.log("Transaction Hash:", Buffer.from(txHash).toString("hex"));
 
-  // Construct the signature with recovery ID
-  const r = Buffer.from(signatureResult[0], "hex");
-  const s = Buffer.from(signatureResult[1], "hex");
-  let recoveryId = parseInt(signatureResult[2], 10);
+  let r = signatureResult.big_r.affine_point;
+  let s = signatureResult.s.scalar;
 
-  if (r.length !== 32 || s.length !== 32) {
-    throw new Error("Invalid signature component length");
-  }
-
-  // Adjust recovery ID if necessary
-  if (recoveryId >= 27) {
-    recoveryId -= 27;
-  }
-  if (recoveryId < 0 || recoveryId > 3) {
-    throw new Error(`Invalid recovery ID: ${recoveryId}`);
-  }
-
-  const signature = createSignature(r, s, recoveryId);
+  const signature = createSignature(r, s);
 
   const signedTransaction = new SignedTransaction({
     transaction,
@@ -180,52 +168,43 @@ export async function broadcastTransaction(
     `Expected Public Key (Compressed, NEAR format):\n${expectedPublicKeyString}\n`,
   );
 
-  let recoveredPublicKeyString: string | null = null;
+  const recId = signatureResult.recovery_id;
+  try {
+    let recoveredPublicKeyString: string | null = null;
 
-  for (let recId = 0; recId < 4; recId++) {
-    try {
-      const recoveredKeyPair = recoverPublicKeyFromSignature(
-        txHash,
-        { r, s },
-        recId,
+    const recoveredKeyPair = recoverPublicKeyFromSignature(
+      txHash,
+      signatureResult,
+    );
+
+    const recoveredPublicKeyBytesCompressed = Buffer.from(
+      recoveredKeyPair.getPublic().encode("array", true),
+    );
+
+    const recoveredPublicKeyNEAR = new PublicKey({
+      keyType: signature.signature.keyType,
+      data: recoveredPublicKeyBytesCompressed,
+    });
+
+    const currentRecoveredPublicKeyString = recoveredPublicKeyNEAR.toString();
+
+    console.log(`Recovery ID ${recId}:\n${currentRecoveredPublicKeyString}`);
+
+    if (currentRecoveredPublicKeyString === expectedPublicKeyString) {
+      logSuccess(
+        `The recovered public key matches the expected public key with recovery ID ${recId}.`,
       );
-
-      const recoveredPublicKeyBytesCompressed = Buffer.from(
-        recoveredKeyPair.getPublic().encode("array", true),
-      );
-
-      const recoveredPublicKeyNEAR = new PublicKey({
-        keyType: signature.signature.keyType,
-        data: recoveredPublicKeyBytesCompressed,
-      });
-
-      const currentRecoveredPublicKeyString = recoveredPublicKeyNEAR.toString();
-
-      console.log(`Recovery ID ${recId}:\n${currentRecoveredPublicKeyString}`);
-
-      if (currentRecoveredPublicKeyString === expectedPublicKeyString) {
-        logSuccess(
-          `The recovered public key matches the expected public key with recovery ID ${recId}.`,
-        );
-        recoveredPublicKeyString = currentRecoveredPublicKeyString;
-        break;
-      } else {
-        logError(
-          `The recovered public key does NOT match the expected public key with recovery ID ${recId}.`,
-        );
-      }
-      console.log("");
-    } catch (error: any) {
-      console.error(
-        `Error during public key recovery with recovery ID ${recId}:`,
-        error.message,
+      recoveredPublicKeyString = currentRecoveredPublicKeyString;
+    } else {
+      logError(
+        `The recovered public key does NOT match the expected public key with recovery ID ${recId}.`,
       );
     }
-  }
-
-  if (!recoveredPublicKeyString) {
-    logError(
-      "The recovered public key does NOT match the expected public key with any recovery ID.",
+    console.log("");
+  } catch (error: any) {
+    console.error(
+      `Error during public key recovery with recovery ID ${recId}:`,
+      error.message,
     );
   }
 

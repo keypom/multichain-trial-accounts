@@ -129,18 +129,9 @@ export async function performActions(
 
 // Helper function to extract signature from the transaction result
 function extractSignatureFromResult(result: any): string[] {
-  const sigBase64 = Buffer.from(
-    (result.status as any).SuccessValue,
-    "base64",
-  ).toString("utf-8");
-  const sigJSON = JSON.parse(sigBase64);
-
-  // Extract r, s, and recovery_id
-  const sigRes: string[] = [
-    sigJSON.big_r.affine_point.slice(0, 64),
-    sigJSON.s.scalar,
-    sigJSON.recovery_id.toString(),
-  ];
+  const sigRes = JSON.parse(
+    Buffer.from(result.status.SuccessValue, "base64").toString(),
+  );
 
   return sigRes;
 }

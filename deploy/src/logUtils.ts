@@ -74,7 +74,7 @@ export function parseContractLog(log: string): any {
 
   // Regular expression to capture various fields from the log
   const regex =
-    /Signer: AccountId\("(.+?)"\), Contract: AccountId\("(.+?)"\), Method: "(.+?)", Args: (\[.*?\]), Gas: NearGas \{ inner: ([0-9]+) \}, Deposit: U128\(([0-9]+)\), Public Key: PublicKey \{ data: (\[.*?\]) \}, MPC Key: PublicKey \{ data: (\[.*?\]) \}, MPC Account: AccountId\("(.+?)"\), Chain ID: (\d+), Nonce: U64\((\d+)\), Block Hash: Base58CryptoHash\((\[.*?\])\), Actions: (\[.*\])$/;
+    /Signer: AccountId\("(.+?)"\), Contract: AccountId\("(.+?)"\), Method: "(.+?)", Args: (\[.*?\]), Gas: NearGas \{ inner: ([0-9]+) \}, Deposit: U128\(([0-9]+)\), Public Key: PublicKey \{ data: (\[.*?\]) \}, MPC Key: PublicKey \{ data: (\[.*?\]) \}, MPC Account: AccountId\("(.+?)"\), Chain ID: (\d+), Nonce: U64\((\d+)\), Block Hash: Base58CryptoHash\((\[.*?\])\), Actions: (\[.*?\]), TxHash: (\[.*?\])$/;
 
   const match = content.match(regex);
 
@@ -91,8 +91,8 @@ export function parseContractLog(log: string): any {
     parsedData["Chain ID"] = match[10];
     parsedData["Nonce"] = match[11];
     parsedData["Block Hash"] = JSON.parse(match[12]);
-    // Parse the Actions string into an array of actions
     parsedData["Actions"] = parseActionsString(match[13]);
+    parsedData["TxHash"] = JSON.parse(match[14]);
   } else {
     console.error("Failed to parse contract log:", log);
   }

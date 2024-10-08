@@ -59,7 +59,7 @@ pub fn public_key_to_string(public_key: &PublicKey) -> String {
 }
 
 // Helper function to hash a payload to 32 bytes
-fn hash_payload(payload: &[u8]) -> [u8; 32] {
+pub fn hash_payload(payload: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(payload);
     let result = hasher.finalize();
@@ -68,15 +68,9 @@ fn hash_payload(payload: &[u8]) -> [u8; 32] {
 
 // Main helper function to create the sign request
 pub fn create_sign_request_from_transaction(
-    tx: NearTransaction,
+    hashed_payload: [u8; 32],
     public_key: PublicKey,
 ) -> serde_json::Value {
-    // Build the transaction to get the payload
-    let payload_vec = tx.build_for_signing();
-
-    // Hash the payload
-    let hashed_payload = hash_payload(&payload_vec);
-
     // Create the sign request with the hashed payload
     let sign_request = SignRequest {
         payload: hashed_payload, // Convert [u8; 32] to Vec<u8> for SignRequest

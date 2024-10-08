@@ -135,9 +135,23 @@ impl Contract {
             deposit: OmniU128(deposit.into()),
         }))];
 
+        // Build the NEAR transaction
+        let tx = TransactionBuilder::new::<NEAR>()
+            .signer_id(mpc_account_id.to_string())
+            .signer_public_key(convert_pk_to_omni(mpc_key.clone()))
+            .nonce(nonce.0) // Use the provided nonce
+            .receiver_id(contract_id.clone().to_string())
+            .block_hash(OmniBlockHash(block_hash.into()))
+            .actions(actions.clone())
+            .build()
+            .build_for_signing();
+
+        // Compute the SHA-256 hash of the serialized transaction
+        let hashed_payload = hash_payload(&tx);
+
         // Log the details to compare with the transaction built in the JS code
         near_sdk::log!(
-            "Signer: {:?}, Contract: {:?}, Method: {:?}, Args: {:?}, Gas: {:?}, Deposit: {:?}, Public Key: {:?}, MPC Key: {:?}, MPC Account: {:?}, Chain ID: {}, Nonce: {:?}, Block Hash: {:?}, Actions: {:?}",
+            "Signer: {:?}, Contract: {:?}, Method: {:?}, Args: {:?}, Gas: {:?}, Deposit: {:?}, Public Key: {:?}, MPC Key: {:?}, MPC Account: {:?}, Chain ID: {}, Nonce: {:?}, Block Hash: {:?}, Actions: {:?}, TxHash: {:?}",
             mpc_account_id,
             contract_id,
             method_name,
@@ -150,20 +164,11 @@ impl Contract {
             chain_id,
             nonce,
             block_hash,
-            actions
+            actions,
+            hashed_payload
         );
 
-        // Build the NEAR transaction
-        let tx = TransactionBuilder::new::<NEAR>()
-            .signer_id(mpc_account_id.to_string())
-            .signer_public_key(convert_pk_to_omni(mpc_key))
-            .nonce(nonce.0) // Use the provided nonce
-            .receiver_id(contract_id.clone().to_string())
-            .block_hash(OmniBlockHash(block_hash.into()))
-            .actions(actions)
-            .build();
-
-        let request_payload = create_sign_request_from_transaction(tx, public_key); // Call the helper
+        let request_payload = create_sign_request_from_transaction(hashed_payload, public_key); // Call the helper
 
         // Call the MPC contract to get a signature
         Promise::new(self.mpc_contract.clone())

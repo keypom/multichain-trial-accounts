@@ -20,17 +20,17 @@ export const config: Config = {
 };
 
 export const trialData: TrialData = {
-  allowedMethods: ["addMessage"],
-  allowedContracts: ["guest-book.testnet"],
+  allowedMethods: ["add_message"],
+  allowedContracts: ["guestbook.near-examples.testnet"],
   initialDeposit: "10",
   chainId: 1313161555,
 };
 
 export const actionsToPerform: ActionToPerform[] = [
   {
-    targetContractId: "guest-book.testnet",
-    methodName: "addMessage",
-    args: { message: "Hello from MPC!" },
+    targetContractId: "guestbook.near-examples.testnet",
+    methodName: "add_message",
+    args: { text: "Hello from MPC!" },
     attachedDepositNear: "1",
     gas: "300000000000000",
   },
