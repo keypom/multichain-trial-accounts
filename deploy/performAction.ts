@@ -15,8 +15,9 @@ import {
   SignedTransaction,
 } from "@near-js/transactions";
 import { Near } from "@near-js/wallet-account";
-// Import elliptic and crypto libraries
-import * as elliptic from "elliptic";
+import { ec as EC } from "elliptic";
+
+import { sha256 } from "js-sha256";
 import * as crypto from "crypto";
 import bs58 from "bs58";
 
@@ -241,7 +242,15 @@ export async function broadcastTransaction(
   const blockHashBytes = bs58.decode(blockHash);
 
   const accessKeys = await signerAccount.getAccessKeys();
-  const accessKeyForSigning = accessKeys[0];
+  const accessKeyForSigning = accessKeys.find(
+    (key) => key.public_key === mpcPublicKey,
+  );
+
+  if (!accessKeyForSigning) {
+    throw new Error(
+      `No access key found for signing with MPC public key ${mpcPublicKey}`,
+    );
+  }
 
   const actions: Action[] = [
     actionCreators.functionCall(
@@ -282,22 +291,40 @@ export async function broadcastTransaction(
   fs.writeFileSync(logsFilePath, JSON.stringify(broadcastLog, null, 2));
   console.log(`Broadcast logs written to ${logsFilePath}`);
 
+  // Create the transaction
   const transaction = createTransaction(
     signerAccount.accountId,
-    PublicKey.fromString(accessKeyForSigning.public_key),
+    PublicKey.fromString(mpcPublicKey), // Use MPC public key
     targetContractId,
     nonce,
     actions,
     blockHashBytes,
   );
 
-  // Construct the signature
+  // Hash the transaction to get the message to sign
+  const serializedTx = transaction.encode();
+  const txHash = new Uint8Array(sha256.array(serializedTx));
+
+  // Log transaction hash
+  console.log("=== Transaction Details ===");
+  console.log("Transaction Hash:", Buffer.from(txHash).toString("hex"));
+
+  // Construct the signature without recovery ID
+  // Construct the signature **with** recovery ID
   const r = Buffer.from(signatureResult[0], "hex");
   const s = Buffer.from(signatureResult[1], "hex");
-  const recoveryId = parseInt(signatureResult[2], 10);
+  let recoveryId = parseInt(signatureResult[2], 10);
 
   if (r.length !== 32 || s.length !== 32) {
     throw new Error("Invalid signature component length");
+  }
+
+  // Adjust recovery ID if necessary (ensure it's between 0 and 3)
+  if (recoveryId >= 27) {
+    recoveryId -= 27;
+  }
+  if (recoveryId < 0 || recoveryId > 3) {
+    throw new Error(`Invalid recovery ID: ${recoveryId}`);
   }
 
   const combinedSignature = Buffer.concat([r, s, Buffer.from([recoveryId])]);
@@ -310,12 +337,108 @@ export async function broadcastTransaction(
     }),
   });
 
+  // Attempt to recover the public key with all possible recovery IDs
+  console.log("\n=== Public Key Recovery ===");
+
+  // Decode the expected public key from Base58
+  const expectedPublicKeyBytes = bs58.decode(
+    mpcPublicKey.replace("secp256k1:", ""),
+  );
+
+  console.log(
+    "Expected Public Key Bytes Length:",
+    expectedPublicKeyBytes.length,
+  );
+
+  // Compress the expected public key if it's uncompressed
+  let expectedPublicKeyCompressedBytes = expectedPublicKeyBytes;
+  if (expectedPublicKeyBytes.length === 65) {
+    const ec = new EC("secp256k1");
+    const expectedKeyPair = ec.keyFromPublic(expectedPublicKeyBytes);
+    expectedPublicKeyCompressedBytes = Buffer.from(
+      expectedKeyPair.getPublic().encode("array", true), // Compress the key
+    );
+    console.log(
+      "Compressed Expected Public Key Bytes Length:",
+      expectedPublicKeyCompressedBytes.length,
+    );
+  }
+
+  // Create NEAR PublicKey object from compressed expected public key
+  const expectedPublicKeyNEAR = new PublicKey({
+    keyType: KeyType.SECP256K1,
+    data: expectedPublicKeyCompressedBytes,
+  });
+
+  const expectedPublicKeyString = expectedPublicKeyNEAR.toString();
+  console.log(
+    "Expected Public Key (Compressed, NEAR format):",
+    expectedPublicKeyString,
+  );
+
+  let recoveredPublicKeyString: string | null = null;
+
+  for (let recId = 0; recId < 4; recId++) {
+    try {
+      const recoveredPublicKey = recoverPublicKeyFromSignature(
+        txHash,
+        { r, s },
+        recId,
+      );
+
+      const recoveredPublicKeyBytesCompressed = Buffer.from(
+        recoveredPublicKey.getPublic().encode("array", true),
+      );
+
+      // Ensure the public key length is correct
+      if (recoveredPublicKeyBytesCompressed.length !== 33) {
+        console.log(
+          `Recovered Public Key Bytes length is incorrect with recovery ID ${recId}`,
+        );
+        continue;
+      }
+
+      const recoveredPublicKeyNEAR = new PublicKey({
+        keyType: KeyType.SECP256K1,
+        data: recoveredPublicKeyBytesCompressed,
+      });
+
+      const currentRecoveredPublicKeyString = recoveredPublicKeyNEAR.toString();
+
+      console.log(`Recovery ID ${recId}: ${currentRecoveredPublicKeyString}`);
+
+      if (currentRecoveredPublicKeyString === expectedPublicKeyString) {
+        console.log(
+          "✅ The recovered public key matches the expected public key.",
+        );
+        recoveredPublicKeyString = currentRecoveredPublicKeyString;
+        break;
+      } else {
+        console.log(
+          "❌ The recovered public key does NOT match the expected public key.",
+        );
+      }
+    } catch (error: any) {
+      console.error(
+        `Error during public key recovery with recovery ID ${recId}:`,
+        error.message,
+      );
+    }
+  }
+
+  if (!recoveredPublicKeyString) {
+    console.log(
+      "\nThe recovered public key does NOT match the expected public key with any recovery ID.",
+    );
+  }
+
   // Send the signed transaction
+  console.log("\n=== Sending Transaction ===");
   try {
     const result = await provider.sendTransaction(signedTransaction);
     console.log("Transaction Result:", result);
   } catch (error) {
-    console.error(error);
+    console.error("Error sending transaction:", error);
   }
 }
 
@@ -354,4 +477,33 @@ export function checkActionValidity(
 
     // Additional checks can be added here (e.g., usage constraints)
   }
+}
+
+// Helper function to recover the public key from the signature
+function recoverPublicKeyFromSignature(
+  msgHash: Uint8Array,
+  signature: { r: Buffer; s: Buffer },
+  recoveryId: number,
+): EC.KeyPair {
+  const ec = new EC("secp256k1");
+
+  // Ensure recovery ID is within 0-3
+  if (recoveryId < 0 || recoveryId > 3) {
+    throw new Error(`Invalid recovery ID: ${recoveryId}`);
+  }
+
+  // Convert message hash to Buffer
+  const msgHashBuffer = Buffer.from(msgHash);
+
+  // Recover the public key point
+  const recoveredPubPoint = ec.recoverPubKey(
+    msgHashBuffer,
+    { r: signature.r, s: signature.s },
+    recoveryId,
+  );
+
+  // Create a KeyPair from the recovered public key point
+  const recoveredKeyPair = ec.keyFromPublic(recoveredPubPoint);
+
+  return recoveredKeyPair;
 }
