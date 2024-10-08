@@ -75,6 +75,8 @@ async function broadcastFromSignature() {
 
       await broadcastTransaction(broadcastParams);
     }
+
+    console.log(`https://testnet.nearblocks.io/address/${trialAccountId}`);
   }
 
   console.log("All transactions broadcasted.");

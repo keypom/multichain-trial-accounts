@@ -171,7 +171,7 @@ yarn createTrial
 **Usage:**
 
 ```bash
-yarn performActions
+yarn requestSignature
 ```
 
 **Process:**
@@ -215,13 +215,13 @@ yarn broadcastSignature
 **Usage:**
 
 ```bash
-yarn createTrial && yarn performActions && yarn broadcastSignature
+yarn createTrial && yarn requestSignature && yarn broadcastSignature
 ```
 
 **Process:**
 
 1. **Create Trial**: Runs `createTrial.ts`.
-2. **Perform Actions**: Runs `performActions.ts`.
+2. **Request Signature**: Runs `performActions.ts`.
 3. **Broadcast Transactions**: Runs `broadcastFromSignature.ts`.
 
 ## Scripts
@@ -234,7 +234,7 @@ The project leverages several npm scripts defined in `package.json` to streamlin
 | --------------------- | ----------------------------------------------------------- |
 | `build`               | Compiles the smart contract using the build script.         |
 | `createTrial`         | Deploys the trial contract and sets up trial accounts.      |
-| `performActions`      | Executes actions on trial accounts and collects signatures. |
+| `requestSignature`    | Executes actions on trial accounts and collects signatures. |
 | `broadcastSignature`  | Broadcasts collected signatures as transactions.            |
 | `requestAndBroadcast` | Performs actions and immediately broadcasts them.           |
 
