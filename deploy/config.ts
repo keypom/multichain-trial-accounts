@@ -1,5 +1,5 @@
 import { UnencryptedFileSystemKeyStore } from "@near-js/keystores-node";
-import { Config, TrialData, ActionToPerform } from "./index";
+import { Config, TrialData, ActionToPerform } from "./src/index";
 
 import fs from "fs";
 import path from "path";

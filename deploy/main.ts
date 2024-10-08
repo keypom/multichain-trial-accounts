@@ -7,7 +7,7 @@ import {
   activateTrialAccounts,
   performActions,
   initNear,
-} from "./index";
+} from "./src/index";
 
 import fs from "fs";
 import path from "path";

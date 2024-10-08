@@ -1,7 +1,6 @@
 // broadcastFromSignature.ts
 
-import { initNear, TrialKey } from "./index";
-import { broadcastTransaction } from "./performAction";
+import { initNear, TrialKey, broadcastTransaction } from "./src/index";
 import fs from "fs";
 import path from "path";
 import { actionsToPerform, config } from "./config";
