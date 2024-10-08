@@ -34,4 +34,11 @@ export const actionsToPerform: ActionToPerform[] = [
     attachedDepositNear: "1",
     gas: "300000000000000",
   },
+  {
+    targetContractId: "invalid-action.testnet",
+    methodName: "invalid_action",
+    args: { text: "Hello from MPC!" },
+    attachedDepositNear: "1",
+    gas: "300000000000000",
+  },
 ];

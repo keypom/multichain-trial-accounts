@@ -145,69 +145,6 @@ export async function broadcastTransaction(
     signature,
   });
 
-  // Attempt to recover the public key
-  logInfo(`=== Attempting Public Key Recovery ===`);
-
-  const expectedPublicKeyBytes = parsePublicKey(mpcPublicKey);
-
-  // Compress the expected public key if necessary
-  let expectedPublicKeyCompressedBytes = expectedPublicKeyBytes;
-  if (expectedPublicKeyBytes.length === 65) {
-    expectedPublicKeyCompressedBytes = compressPublicKey(
-      Buffer.from(expectedPublicKeyBytes),
-    );
-  }
-
-  const expectedPublicKeyNEAR = new PublicKey({
-    keyType: signature.signature.keyType,
-    data: expectedPublicKeyCompressedBytes,
-  });
-
-  const expectedPublicKeyString = expectedPublicKeyNEAR.toString();
-  console.log(
-    `Expected Public Key (Compressed, NEAR format):\n${expectedPublicKeyString}\n`,
-  );
-
-  const recId = signatureResult.recovery_id;
-  try {
-    let recoveredPublicKeyString: string | null = null;
-
-    const recoveredKeyPair = recoverPublicKeyFromSignature(
-      txHash,
-      signatureResult,
-    );
-
-    const recoveredPublicKeyBytesCompressed = Buffer.from(
-      recoveredKeyPair.getPublic().encode("array", true),
-    );
-
-    const recoveredPublicKeyNEAR = new PublicKey({
-      keyType: signature.signature.keyType,
-      data: recoveredPublicKeyBytesCompressed,
-    });
-
-    const currentRecoveredPublicKeyString = recoveredPublicKeyNEAR.toString();
-
-    console.log(`Recovery ID ${recId}:\n${currentRecoveredPublicKeyString}`);
-
-    if (currentRecoveredPublicKeyString === expectedPublicKeyString) {
-      logSuccess(
-        `The recovered public key matches the expected public key with recovery ID ${recId}.`,
-      );
-      recoveredPublicKeyString = currentRecoveredPublicKeyString;
-    } else {
-      logError(
-        `The recovered public key does NOT match the expected public key with recovery ID ${recId}.`,
-      );
-    }
-    console.log("");
-  } catch (error: any) {
-    console.error(
-      `Error during public key recovery with recovery ID ${recId}:`,
-      error.message,
-    );
-  }
-
   // Send the signed transaction
   logInfo(`=== Sending Transaction ===`);
   try {

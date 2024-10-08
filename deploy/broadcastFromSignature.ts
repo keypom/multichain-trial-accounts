@@ -1,12 +1,12 @@
-// broadcastFromSignature.ts
+// src/broadcastFromSignature.ts
 
-import { initNear, TrialKey, broadcastTransaction } from "./src/index";
+import { initNear, broadcastTransaction, TrialKey } from "./src/index";
 import fs from "fs";
 import path from "path";
 import { actionsToPerform, config } from "./config";
 
 async function broadcastFromSignature() {
-  console.log("Broadcasting transactions...");
+  console.log("Initializing NEAR connection...");
   const near = await initNear(config);
 
   const signaturesFilePath = path.join(config.dataDir, "signatures.json");
@@ -21,44 +21,65 @@ async function broadcastFromSignature() {
     fs.readFileSync(signaturesFilePath, "utf-8"),
   );
 
-  // Read trial keys to get the MPC key
-  const trialKeysFilePath = path.join(config.dataDir, `trial-1-keys.json`);
-  const trialKeys: TrialKey[] = JSON.parse(
-    fs.readFileSync(trialKeysFilePath, "utf-8"),
+  // Read trial keys to get the MPC key and trial account public key
+  const trialDataFilePath = path.join(config.dataDir, `trialData.json`);
+  const trialDataContent: any = JSON.parse(
+    fs.readFileSync(trialDataFilePath, "utf-8"),
   );
+  const { trialKeys } = trialDataContent;
 
   // Iterate over each account and broadcast their transactions
   for (const trialAccountId of Object.keys(accountSignatures)) {
     console.log(`Broadcasting transactions for account: ${trialAccountId}`);
 
-    const { signatures, nonces, blockHash } = accountSignatures[trialAccountId];
+    const {
+      signatures,
+      nonces,
+      blockHash,
+      mpcPublicKey,
+      trialAccountPublicKey,
+    } = accountSignatures[trialAccountId];
 
     // Load the trial account
     const trialAccount = await near.account(trialAccountId);
 
     // Get the MPC key for this trial account
     const trialKey = trialKeys.find(
-      (tk) => tk.trialAccountId === trialAccountId,
+      (tk: TrialKey) => tk.trialAccountId === trialAccountId,
     );
     if (!trialKey) {
       console.error(`Trial key not found for account: ${trialAccountId}`);
       continue;
     }
-    const mpcPublicKey = trialKey.mpcKey;
 
     // Broadcast transactions
     for (let i = 0; i < actionsToPerform.length; i++) {
-      await broadcastTransaction({
+      // Ensure signatures[i] exists
+      if (!signatures[i]) {
+        console.error(
+          `Missing signature for action ${i + 1} of account ${trialAccountId}`,
+        );
+        continue;
+      }
+
+      const broadcastParams = {
         signerAccount: trialAccount,
         actionToPerform: actionsToPerform[i],
         signatureResult: signatures[i],
         nonce: nonces[i],
         blockHash,
         mpcPublicKey, // Pass in the MPC public key
-        trialAccountPublicKey: trialKey.trialAccountPublicKey,
-      });
+        trialAccountPublicKey,
+        txHash: signatures[i].txHash || [], // Ensure txHash is an array
+      };
+
+      await broadcastTransaction(broadcastParams);
     }
   }
+
+  console.log("All transactions broadcasted.");
 }
 
-broadcastFromSignature().catch(console.error);
+broadcastFromSignature().catch((error) => {
+  console.error("Error in broadcastFromSignature:", error);
+});

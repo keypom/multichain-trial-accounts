@@ -115,3 +115,9 @@ export interface MPCSignature {
   s: { scalar: string };
   recovery_id: number;
 }
+
+export interface TrialDataFile {
+  trialId: string;
+  trialContractId: string;
+  trialKeys: TrialKey[];
+}

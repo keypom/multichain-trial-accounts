@@ -1,25 +1,26 @@
-// main.ts
+// src/createTrials.ts
 
 import {
   deployTrialContract,
   createTrial,
   addTrialAccounts,
   activateTrialAccounts,
-  performActions,
   initNear,
+  TrialKey,
 } from "./src/index";
 
 import fs from "fs";
 import path from "path";
-import { config, trialData, actionsToPerform } from "./config";
+import { config, trialData } from "./config";
 
-async function main() {
-  console.log("Deploying trial contract...");
+async function createTrials() {
+  console.log("Initializing NEAR connection...");
   const near = await initNear(config);
   const signerAccount = await near.account(config.signerAccountId);
 
   // Deploy contract if needed
   const trialContractId = `${Date.now().toString()}-trial-contract.testnet`;
+  console.log(`Deploying trial contract with ID: ${trialContractId}`);
   await deployTrialContract({
     near,
     config,
@@ -27,18 +28,21 @@ async function main() {
     contractAccountId: trialContractId,
     mpcContractId: config.mpcContractId,
     wasmFilePath: "./out/trials.wasm",
-    initialBalance: "50",
+    initialBalance: "50", // Adjust as needed
   });
 
   // Create a trial
+  console.log("Creating a trial...");
   const trialId = await createTrial({
     signerAccount,
     contractAccountId: trialContractId,
     trialData,
   });
+  console.log(`Trial created with ID: ${trialId}`);
 
   // Add trial accounts
-  const trialKeys = await addTrialAccounts({
+  console.log("Adding trial accounts...");
+  const trialKeys: TrialKey[] = await addTrialAccounts({
     signerAccount,
     config,
     contractAccountId: trialContractId,
@@ -46,6 +50,7 @@ async function main() {
     numberOfKeys: config.numberOfKeys,
     dataDir: config.dataDir,
   });
+  console.log(`Added ${trialKeys.length} trial accounts.`);
 
   // Activate trial accounts
   const trialAccountIds = trialKeys.map((tk) => tk.trialAccountId);
@@ -53,6 +58,7 @@ async function main() {
     (tk) => tk.trialAccountSecretKey,
   );
 
+  console.log("Activating trial accounts...");
   await activateTrialAccounts({
     config,
     near,
@@ -60,38 +66,24 @@ async function main() {
     contractAccountId: trialContractId,
     trialAccountIds,
   });
+  console.log("Trial accounts activated.");
 
-  // Perform actions and collect signatures
-  const accountSignatures: { [accountId: string]: any } = {};
+  // Prepare trial data to write to file
+  const trialDataToWrite = {
+    trialId,
+    trialContractId,
+    trialKeys,
+  };
 
-  for (const trialKey of trialKeys) {
-    const trialAccountId = trialKey.trialAccountId;
-    const trialAccountSecretKey = trialKey.trialAccountSecretKey;
-
-    // Perform actions and get signatures, nonces, and block hash
-    const { signatures, nonces, blockHash } = await performActions({
-      config,
-      near,
-      trialAccountId,
-      trialAccountSecretKey,
-      contractAccountId: trialContractId,
-      actionsToPerform,
-    });
-
-    accountSignatures[trialAccountId] = {
-      signatures,
-      nonces,
-      blockHash,
-    };
-  }
-
-  // Write signatures mapping to file
-  const signaturesFilePath = path.join(config.dataDir, `signatures.json`);
+  // Write trial data to a file
+  const trialDataFilePath = path.join(config.dataDir, `trialData.json`);
   fs.writeFileSync(
-    signaturesFilePath,
-    JSON.stringify(accountSignatures, null, 2),
+    trialDataFilePath,
+    JSON.stringify(trialDataToWrite, null, 2),
   );
-  console.log(`Signatures written to ${signaturesFilePath}`);
+  console.log(`Trial data written to ${trialDataFilePath}`);
 }
 
-main().catch(console.error);
+createTrials().catch((error) => {
+  console.error("Error in createTrials:", error);
+});

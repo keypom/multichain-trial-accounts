@@ -1,59 +1,53 @@
-# Keypom Trial Accounts Contract
-
-Welcome to the **Keypom Trial Accounts** repository. This project provides both a NEAR smart contract and an accompanying NPM package for managing trial accounts. It allows developers to create limited-access trial accounts with specific constraints and exit conditions, enabling fine-grained control over account permissions, usage tracking, and automated transitions from trial to full accounts.
+# Keypom Multichain Trial Accounts
 
 ## Table of Contents
 
-- [Overview](#overview)
+- [Introduction](#introduction)
 - [Features](#features)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
-- [Contract Structure](#contract-structure)
+- [Configuration](#configuration)
+- [Project Structure](#project-structure)
 - [Usage](#usage)
-  - [Initializing the Contract](#initializing-the-contract)
-  - [Creating a Trial](#creating-a-trial)
-  - [Adding Trial Keys](#adding-trial-keys)
-  - [Performing Actions](#performing-actions)
-  - [Exiting a Trial](#exiting-a-trial)
-  - [Deleting a Trial](#deleting-a-trial)
+  - [1. Create Trials](#1-create-trials)
+  - [2. Perform Actions](#2-perform-actions)
+  - [3. Broadcast Transactions](#3-broadcast-transactions)
+  - [4. Combined Workflow](#4-combined-workflow)
 - [Scripts](#scripts)
 - [Contributing](#contributing)
 - [License](#license)
-- [Additional Notes](#additional-notes)
 
-## Overview
+## Introduction
 
-The **Keypom Trial Accounts Contract** allows developers to create and manage trial accounts on the NEAR blockchain. Trial accounts have limited permissions and can be configured with various constraints such as allowed methods, contracts, gas usage, deposit limits, and exit conditions. This contract facilitates:
-
-- Creation and deletion of trial accounts.
-- Adding and managing access keys with specific permissions.
-- Tracking usage statistics and enforcing constraints.
-- Transitioning trial accounts to full accounts upon meeting exit conditions.
+**Keypom Trial Accounts** provides a framework for deploying and managing trial accounts on the NEAR blockchain using Multi-Party Computation (MPC) for secure signature handling. This project facilitates the deployment of trial contracts, creation and management of trial accounts, execution of actions with MPC signatures, and broadcasting of transactions. By modularizing these processes, it allows for efficient testing and interaction without the need for constant redeployment.
 
 ## Features
 
-- **Trial Management**: Create, update, and delete trial accounts with customizable parameters.
-- **Access Control**: Add access keys with restricted permissions to trial accounts.
-- **Usage Tracking**: Monitor usage statistics like gas used, deposit amounts, and method calls.
-- **Exit Conditions**: Define conditions under which a trial account can be upgraded or exited.
-- **Integration with MPC**: Interact with a Multi-Party Computation (MPC) contract for secure key management.
+- **Contract Deployment**: Easily deploy trial contracts with configurable parameters.
+- **Trial Creation**: Create and manage multiple trials with specific constraints.
+- **MPC Integration**: Utilize MPC for secure and decentralized signature generation.
+- **Action Execution**: Perform actions on trial accounts with pre-defined constraints.
+- **Transaction Broadcasting**: Sign and broadcast transactions seamlessly.
+- **Modular Scripts**: Separate scripts for trial creation, action execution, broadcasting, and log comparison for streamlined workflows.
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
+Before setting up the project, ensure you have the following installed:
 
-- [Rust](https://www.rust-lang.org/tools/install) (version >= 1.60.0)
-- [NEAR CLI](https://docs.near.org/tools/near-cli#setup)
-- [Yarn](https://classic.yarnpkg.com/en/docs/install) or [npm](https://www.npmjs.com/get-npm)
-- [Node.js](https://nodejs.org/) (version >= 14)
+- **Node.js**: Version 14.x or higher
+- **Yarn**: For package management
+- **TypeScript**: For type-safe JavaScript
+- **NEAR CLI**: For interacting with the NEAR blockchain
+- **Rust**: Required for compiling NEAR smart contracts
+- **Git**: For version control
 
 ## Installation
 
 1. **Clone the Repository**
 
 ```bash
-git clone https://github.com/yourusername/keypom-trial-accounts.git
-cd keypom-trial-accounts/contract
+git clone https://github.com/keypom/multichain-trial-accounts.git
+cd multichain-trial-accounts
 ```
 
 2. **Install Dependencies**
@@ -62,194 +56,194 @@ cd keypom-trial-accounts/contract
 yarn install
 ```
 
-3. **Build the Contract**
+3. **Build the Smart Contract**
+
+   Ensure you have Rust installed. Then, navigate to the contract directory and build the contract.
 
 ```bash
-yarn build:release
+cd contract
+./build.sh
+cd ..
 ```
 
-This will compile the contract and generate a WASM file in the `out` directory.
+_Note: The `build.sh` script should compile the Rust smart contract into WebAssembly (`.wasm`) format._
 
-## Contract Structure
+## Configuration
 
-The contract is organized into several modules for clarity and maintainability:
+Configuration is managed centrally via the `deploy/config.ts` file located in the root directory. This file contains all the necessary settings for connecting to the NEAR network, managing trial parameters, and defining actions.
 
-- **models**: Contains data structures and constants used across the contract.
-- **trial_management**: Handles creating, deleting, and managing trials.
-- **active_trial**: Manages actions performed by trial accounts, usage tracking, and exit mechanisms.
-- **near**: Contains utilities and types specific to NEAR transactions and keys.
-- **transaction_builder**: Provides a generic transaction builder pattern for constructing transactions.
+### `config.ts`
+
+```ts
+import { UnencryptedFileSystemKeyStore } from "@near-js/keystores-node";
+import { Config, TrialData, ActionToPerform } from "./src/index";
+
+import fs from "fs";
+import path from "path";
+import os from "os";
+
+const homedir = os.homedir();
+const CREDENTIALS_DIR = ".near-credentials";
+const credentialsPath = path.join(homedir, CREDENTIALS_DIR);
+
+// User configuration
+export const config: Config = {
+  networkId: "testnet",
+  signerAccountId: "your-account.testnet",
+  keyStore: new UnencryptedFileSystemKeyStore(credentialsPath),
+  mpcContractId: "v1.signer-prod.testnet",
+  numberOfKeys: 1,
+  dataDir: "./data",
+};
+
+export const trialData: TrialData = {
+  allowedMethods: ["add_message"],
+  allowedContracts: ["guestbook.near-examples.testnet"],
+  initialDeposit: "10",
+  chainId: 1313161555,
+};
+
+export const actionsToPerform: ActionToPerform[] = [
+  {
+    targetContractId: "guestbook.near-examples.testnet",
+    methodName: "add_message",
+    args: { text: "Hello from MPC!" },
+    attachedDepositNear: "1",
+    gas: "300000000000000",
+  },
+];
+```
+
+### Configuration Parameters
+
+- **networkId**: The NEAR network to connect to (`testnet`, `mainnet`, etc.).
+- **signerAccountId**: The NEAR account ID that will sign the transactions to deploy and create trials.
+- **keyStore**: Key store instance for managing NEAR keys.
+- **mpcContractId**: The account ID of the MPC contract.
+- **numberOfKeys**: Number of trial keys to generate.
+- **dataDir**: Directory to store trial data and signatures.
+- **trialData**: Defines the constraints and parameters for trials.
+- **actionsToPerform**: List of actions to execute on trial accounts.
+
+_Ensure to replace `"your-account.testnet"` and other placeholders with your actual NEAR account details._
+
+### Key Directories and Files
+
+- **contract/**: Contains the Rust smart contract code and build scripts.
+- **data/**: Stores trial data, signatures, and key files.
+- **deploy/**: Houses deployment and management scripts written in TypeScript.
 
 ## Usage
 
-### Initializing the Contract
+The project is divided into several scripts, each responsible for a specific task. Below is a step-by-step guide on how to use each script effectively.
 
-Deploy the contract to a NEAR account and initialize it:
+### 1. Create Trials
 
-```bash
-near deploy --wasmFile out/main.wasm --accountId your-account.testnet
+**Script:** `deploy/createTrial.ts`
 
-near call your-account.testnet new '{"admin_account": "admin.testnet", "mpc_contract": "mpc.testnet"}' --accountId your-account.testnet
-```
+**Purpose:** Deploys a trial contract, creates a trial, adds trial accounts, activates them, and writes the trial data to a file.
 
-### Creating a Trial
-
-To create a new trial with specific parameters:
+**Usage:**
 
 ```bash
-near call your-account.testnet create_trial '{
-  "allowed_methods": ["method1", "method2"],
-  "allowed_contracts": ["contract1.testnet", "contract2.testnet"],
-  "max_gas": null,
-  "max_deposit": null,
-  "usage_constraints": null,
-  "interaction_limits": null,
-  "exit_conditions": null,
-  "expiration_time": null,
-  "chain_id": 1313161554
-}' --accountId creator.testnet --deposit 1
+yarn createTrial
 ```
 
-- **Parameters**:
-  - `allowed_methods`: Methods the trial account can call.
-  - `allowed_contracts`: Contracts the trial account can interact with.
-  - `max_gas`: Optional maximum gas limit per transaction.
-  - `max_deposit`: Optional maximum deposit allowed.
-  - `usage_constraints`: Optional usage constraints (e.g., max contracts, methods).
-  - `interaction_limits`: Optional interaction limits (e.g., interactions per day).
-  - `exit_conditions`: Optional exit conditions for the trial.
-  - `expiration_time`: Optional expiration timestamp for the trial.
-  - `chain_id`: The chain ID for the NEAR network.
+**Process:**
 
-### Adding Trial Keys
+1. **Initialize NEAR Connection**: Connects to the NEAR network using the provided configuration.
+2. **Deploy Contract**: Deploys the trial contract to a new account.
+3. **Create Trial**: Initializes a new trial with specified parameters.
+4. **Add Trial Accounts**: Generates trial keys and adds them to the trial.
+5. **Activate Trial Accounts**: Activates the generated trial accounts.
+6. **Write Trial Data**: Saves trial information to `data/trialData.json`.
 
-Add public keys to the trial for access control:
+**Output:**
+
+- `data/trialData.json`: Contains trial ID, contract ID, and trial keys.
+
+### 2. Perform Actions
+
+**Script:** `deploy/performActions.ts`
+
+**Purpose:** Executes predefined actions on trial accounts and collects signatures, nonces, and block hashes.
+
+**Usage:**
 
 ```bash
-near call your-account.testnet add_trial_keys '{
-  "public_keys": ["ed25519:yourpublickeyhere"],
-  "trial_id": 1
-}' --accountId creator.testnet --deposit 0.1
+yarn performActions
 ```
 
-### Performing Actions
+**Process:**
 
-Trial accounts can perform actions within the allowed constraints:
+1. **Initialize NEAR Connection**: Connects to the NEAR network.
+2. **Read Trial Data**: Loads trial information from `data/trialData.json`.
+3. **Execute Actions**: Performs actions on each trial account and collects necessary data.
+4. **Write Signatures**: Saves signatures, nonces, and block hashes to `data/signatures.json`.
+
+**Output:**
+
+- `data/signatures.json`: Contains signatures, nonces, and block hashes for each trial account.
+
+### 3. Broadcast Transactions
+
+**Script:** `deploy/broadcastFromSignature.ts`
+
+**Purpose:** Reads signatures from `data/signatures.json` and broadcasts transactions to the NEAR network.
+
+**Usage:**
 
 ```bash
-near call your-account.testnet perform_action '{
-  "contract_id": "target-contract.testnet",
-  "method_name": "method_to_call",
-  "args": "e30=",  // Base64-encoded JSON: {}
-  "gas": "100000000000000",
-  "deposit": "0"
-}' --accountId trial-account.testnet --signerKeyPath path/to/key.json
+yarn broadcastSignature
 ```
 
-### Exiting a Trial
+**Process:**
 
-To exit a trial and upgrade to a full account:
+1. **Initialize NEAR Connection**: Connects to the NEAR network.
+2. **Read Signatures**: Loads signatures from `data/signatures.json`.
+3. **Read Trial Keys**: Loads trial keys from `data/trialData.json`.
+4. **Broadcast Transactions**: Signs and sends transactions for each action using the collected signatures.
 
-`TODO`
+**Output:**
 
-### Deleting a Trial
+- Transactions are sent to the NEAR network. Transaction results are logged in the console.
 
-Creators can delete unused trials to reclaim storage:
+### 4. Combined Workflow
+
+**Purpose:** Executes the entire workflow from performing actions to broadcasting transactions and comparing logs.
+
+**Usage:**
 
 ```bash
-near call your-account.testnet delete_trial '{
-  "trial_id": 1
-}' --accountId creator.testnet
+yarn createTrial && yarn performActions && yarn broadcastSignature
 ```
+
+**Process:**
+
+1. **Create Trial**: Runs `createTrial.ts`.
+2. **Perform Actions**: Runs `performActions.ts`.
+3. **Broadcast Transactions**: Runs `broadcastFromSignature.ts`.
 
 ## Scripts
 
-The `scripts` directory contains helpful scripts for interacting with the contract.
+The project leverages several npm scripts defined in `package.json` to streamline operations.
 
-### create_trial.sh
+### Available Scripts
 
-Creates a new trial:
-
-```bash
-#!/bin/bash
-near call your-account.testnet create_trial '{
-  "allowed_methods": ["method1", "method2"],
-  "allowed_contracts": ["contract1.testnet", "contract2.testnet"],
-  "max_gas": null,
-  "max_deposit": null,
-  "usage_constraints": null,
-  "interaction_limits": null,
-  "exit_conditions": null,
-  "expiration_time": null,
-  "chain_id": 1313161554
-}' --accountId creator.testnet --deposit 1
-```
-
-### add_trial_keys.sh
-
-Adds public keys to a trial:
-
-```bash
-#!/bin/bash
-near call your-account.testnet add_trial_keys '{
-  "public_keys": ["ed25519:yourpublickeyhere"],
-  "trial_id": 1
-}' --accountId creator.testnet --deposit 0.1
-
-```
-
-### perform_action.sh
-
-Performs an action as a trial account:
-
-```bash
-#!/bin/bash
-near call your-account.testnet perform_action '{
-  "contract_id": "target-contract.testnet",
-  "method_name": "method_to_call",
-  "args": "e30=",  // Base64-encoded JSON: {}
-  "gas": "100000000000000",
-  "deposit": "0"
-}' --accountId trial-account.testnet --signerKeyPath path/to/key.json
-```
-
-### exit_trial.sh
-
-Exits a trial and adds a full access key:
-
-```bash
-#!/bin/bash
-near call your-account.testnet exit_trial '{
-  "public_key": "ed25519:yournewpublickeyhere",
-  "derivation_path": "m/44'/397'/0'"
-}' --accountId trial-account.testnet --signerKeyPath path/to/key.json
-
-```
-
-### delete_trial.sh
-
-Deletes a trial:
-
-```bash
-#!/bin/bash
-near call your-account.testnet delete_trial '{
-  "trial_id": 1
-}' --accountId creator.testnet
-
-```
+| Script                | Description                                                 |
+| --------------------- | ----------------------------------------------------------- |
+| `build`               | Compiles the smart contract using the build script.         |
+| `createTrial`         | Deploys the trial contract and sets up trial accounts.      |
+| `performActions`      | Executes actions on trial accounts and collects signatures. |
+| `broadcastSignature`  | Broadcasts collected signatures as transactions.            |
+| `requestAndBroadcast` | Performs actions and immediately broadcasts them.           |
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request.
+Contributions are welcome! Whether you're reporting bugs, suggesting features, or submitting pull requests, your input is valuable.
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](LICENSE).
 
-## Additional Notes
-
-To ensure smooth testing and deployment, please consider the following:
-
-- **Error Handling**: The contract uses `assert` statements to enforce constraints. Ensure that the inputs meet the requirements to avoid runtime panics.
-- **Nonce Management**: In the `TransactionBuilder`, replace hardcoded nonce values with appropriate logic to fetch and increment nonces.
-- **MPC Contract Integration**: The contract interacts with an MPC contract. Ensure that the MPC contract is deployed and accessible at the specified address.
+---
