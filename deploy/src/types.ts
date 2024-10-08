@@ -1,6 +1,6 @@
 // types.ts
 
-import { KeyPair, KeyPairString } from "@near-js/crypto";
+import { KeyPairString } from "@near-js/crypto";
 import { UnencryptedFileSystemKeyStore } from "@near-js/keystores-node";
 
 /**

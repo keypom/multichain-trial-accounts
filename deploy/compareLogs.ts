@@ -1,9 +1,17 @@
+// compareLogs.ts
+
 import fs from "fs";
 import path from "path";
 import bs58 from "bs58";
 import { parseNearAmount } from "@near-js/utils";
+import { compareAndLog, logError, logInfo, logSuccess } from "./src/logUtils";
 
+/**
+ * Compares contract logs with broadcast logs and logs the results.
+ */
 function compareLogs() {
+  logInfo("Starting log comparison...\n");
+
   // Read the contract logs
   const contractLogsPath = path.join("data", "contract_logs.json");
   const contractLogs = JSON.parse(fs.readFileSync(contractLogsPath, "utf-8"));
@@ -16,187 +24,115 @@ function compareLogs() {
   const contractLog = contractLogs[0];
   const jsLog = broadcastLogs;
 
-  // Compare Signer Account
-  if (contractLog.Signer !== jsLog.signerAccount) {
-    console.log(
-      `Signer mismatch! Contract: ${contractLog.Signer}, JS: ${jsLog.signerAccount}`,
-    );
-  } else {
-    console.log("Signer accounts match.");
-  }
+  logInfo("Comparing Signer Account...");
+  compareAndLog("Signer Account", contractLog.Signer, jsLog.signerAccount);
 
-  // Compare Target Contract
-  if (contractLog.Contract !== jsLog.targetContract) {
-    console.log(
-      `Contract mismatch! Contract: ${contractLog.Contract}, JS: ${jsLog.targetContract}`,
-    );
-  } else {
-    console.log("Target contracts match.");
-  }
+  logInfo("\nComparing Target Contract...");
+  compareAndLog("Target Contract", contractLog.Contract, jsLog.targetContract);
 
-  // Compare Method Name
-  if (contractLog.Method !== jsLog.methodName) {
-    console.log(
-      `Method name mismatch! Contract: ${contractLog.Method}, JS: ${jsLog.methodName}`,
-    );
-  } else {
-    console.log("Method names match.");
-  }
+  logInfo("\nComparing Method Name...");
+  compareAndLog("Method Name", contractLog.Method, jsLog.methodName);
 
-  // Compare Arguments
-  const argsMatch = compareUint8Arrays(contractLog.Args, jsLog.args);
-  if (!argsMatch) {
-    console.log("Arguments mismatch!");
-    console.log("Contract args:", contractLog.Args);
-    console.log("JS args:", jsLog.args);
-  } else {
-    console.log("Arguments match.");
-  }
+  logInfo("\nComparing Arguments...");
+  compareAndLog("Arguments", contractLog.Args, jsLog.args);
 
-  // Compare Gas
-  if (contractLog.Gas !== jsLog.gas) {
-    console.log(`Gas mismatch! Contract: ${contractLog.Gas}, JS: ${jsLog.gas}`);
-  } else {
-    console.log("Gas values match.");
-  }
+  logInfo("\nComparing Gas...");
+  compareAndLog("Gas", contractLog.Gas, jsLog.gas);
 
-  // Compare Deposit
-  if (contractLog.Deposit !== parseNearAmount(jsLog.deposit)) {
-    console.log(
-      `Deposit mismatch! Contract: ${contractLog.Deposit}, JS: ${parseNearAmount(jsLog.deposit)}`,
-    );
-  } else {
-    console.log("Deposit values match.");
-  }
+  logInfo("\nComparing Deposit...");
+  compareAndLog(
+    "Deposit",
+    contractLog.Deposit,
+    parseNearAmount(jsLog.deposit) || jsLog.deposit,
+  );
 
-  // Compare Public Keys
+  logInfo("\nComparing Public Keys...");
   const contractPublicKeyData = contractLog["Public Key"].data;
   const jsPublicKeyDecoded = bs58.decode(
     jsLog.publicKey.replace("ed25519:", ""),
   );
-  const pkMatch = compareUint8Arrays(contractPublicKeyData, jsPublicKeyDecoded);
-  if (!pkMatch) {
-    console.log("Public Key mismatch!");
-    console.log("Contract Public Key:", contractPublicKeyData);
-    console.log("JS Public Key:", Array.from(jsPublicKeyDecoded));
-  } else {
-    console.log("Public keys match.");
-  }
+  compareAndLog(
+    "Public Key",
+    contractPublicKeyData,
+    Array.from(jsPublicKeyDecoded),
+  );
 
-  // Compare MPC Public Keys
+  logInfo("\nComparing MPC Public Keys...");
   if (contractLog["MPC Key"] && jsLog.mpcPublicKey) {
     const contractMpcKeyData = contractLog["MPC Key"].data;
     const jsMpcKeyDecoded = bs58.decode(
       jsLog.mpcPublicKey.replace("secp256k1:", ""),
     );
-    const mpcPkMatch = compareUint8Arrays(contractMpcKeyData, jsMpcKeyDecoded);
-    if (!mpcPkMatch) {
-      console.log("MPC Public Key mismatch!");
-      console.log("Contract MPC Public Key:", contractMpcKeyData);
-      console.log("JS MPC Public Key:", Array.from(jsMpcKeyDecoded));
-    } else {
-      console.log("MPC public keys match.");
-    }
-  } else {
-    console.log("MPC Public Key missing in logs.");
-  }
-
-  // Compare Nonce
-  if (contractLog.Nonce !== jsLog.nonce) {
-    console.log(
-      `Nonce mismatch! Contract: ${contractLog.Nonce}, JS: ${jsLog.nonce}`,
+    compareAndLog(
+      "MPC Public Key",
+      contractMpcKeyData,
+      Array.from(jsMpcKeyDecoded),
     );
   } else {
-    console.log("Nonce values match.");
+    logInfo("MPC Public Key missing in logs.");
   }
 
-  // Compare Block Hash
+  logInfo("\nComparing Nonce...");
+  compareAndLog("Nonce", contractLog.Nonce, jsLog.nonce);
+
+  logInfo("\nComparing Block Hash...");
   const contractBlockHash = contractLog["Block Hash"];
   const jsBlockHashDecoded = bs58.decode(jsLog.blockHash);
-  const blockHashMatch = compareUint8Arrays(
+  compareAndLog(
+    "Block Hash",
     contractBlockHash,
-    jsBlockHashDecoded,
+    Array.from(jsBlockHashDecoded),
   );
-  if (!blockHashMatch) {
-    console.log("Block Hash mismatch!");
-    console.log("Contract Block Hash:", contractBlockHash);
-    console.log("JS Block Hash:", Array.from(jsBlockHashDecoded));
-  } else {
-    console.log("Block hashes match.");
-  }
 
-  // Compare Actions
-  // Since Actions can be complex, you might need to parse and compare specific fields
-  console.log("Comparing Actions...");
-  // Compare Actions
-  if (contractLog.Actions.length !== jsLog.actions.length) {
-    console.log(
-      `Number of actions mismatch! Contract: ${contractLog.Actions.length}, JS: ${jsLog.actions.length}`,
-    );
-  } else {
-    console.log("Number of actions match.");
-    for (let i = 0; i < contractLog.Actions.length; i++) {
-      const contractAction = contractLog.Actions[i];
-      const jsAction = jsLog.actions[i];
+  logInfo("\nComparing Actions...");
+  compareActions(contractLog.Actions, jsLog.actions);
 
-      // Compare method names
-      if (contractAction.methodName !== jsAction.methodName) {
-        console.log(
-          `Action ${i} method name mismatch! Contract: ${contractAction.methodName}, JS: ${jsAction.methodName}`,
-        );
-      } else {
-        console.log(`Action ${i} method names match.`);
-      }
-
-      // Compare arguments
-      const argsMatch = compareUint8Arrays(contractAction.args, jsAction.args);
-      if (!argsMatch) {
-        console.log(`Action ${i} arguments mismatch!`);
-      } else {
-        console.log(`Action ${i} arguments match.`);
-      }
-
-      // Compare gas
-      if (contractAction.gas !== jsAction.gas) {
-        console.log(
-          `Action ${i} gas mismatch! Contract: ${contractAction.gas}, JS: ${jsAction.gas}`,
-        );
-      } else {
-        console.log(`Action ${i} gas values match.`);
-      }
-
-      // Compare deposit
-      if (contractAction.deposit !== jsAction.deposit) {
-        console.log(
-          `Action ${i} deposit mismatch! Contract: ${contractAction.deposit}, JS: ${jsAction.deposit}`,
-        );
-      } else {
-        console.log(`Action ${i} deposit values match.`);
-      }
-    }
-  }
-
-  console.log("Comparison complete.");
+  logInfo("\nLog comparison complete.");
 }
 
-// Helper function to compare two arrays of numbers
-function compareUint8Arrays(
-  arr1: number[],
-  arr2: Uint8Array | number[],
-): boolean {
-  if (arr1.length !== arr2.length) {
-    console.log(`Array lengths differ: ${arr1.length} vs ${arr2.length}`);
-    return false;
+/**
+ * Compares actions from contract logs with broadcast logs.
+ * @param contractActions - Array of actions from contract logs.
+ * @param jsActions - Array of actions from broadcast logs.
+ */
+function compareActions(contractActions: any[], jsActions: any[]) {
+  if (contractActions.length !== jsActions.length) {
+    logError(
+      `Number of actions mismatch! Contract: ${contractActions.length}, JS: ${jsActions.length}`,
+    );
+    return;
   }
-  for (let i = 0; i < arr1.length; i++) {
-    if (arr1[i] !== arr2[i]) {
-      console.log(
-        `Array elements differ at index ${i}: ${arr1[i]} vs ${arr2[i]}`,
-      );
-      return false;
-    }
+
+  logSuccess(`Number of actions match: ${contractActions.length}`);
+
+  for (let i = 0; i < contractActions.length; i++) {
+    const contractAction = contractActions[i];
+    const jsAction = jsActions[i];
+
+    logInfo(`\nComparing Action ${i + 1} Method Name...`);
+    compareAndLog(
+      `Action ${i + 1} Method Name`,
+      contractAction.methodName,
+      jsAction.methodName,
+    );
+
+    logInfo(`Comparing Action ${i + 1} Arguments...`);
+    compareAndLog(
+      `Action ${i + 1} Arguments`,
+      contractAction.args,
+      jsAction.args,
+    );
+
+    logInfo(`Comparing Action ${i + 1} Gas...`);
+    compareAndLog(`Action ${i + 1} Gas`, contractAction.gas, jsAction.gas);
+
+    logInfo(`Comparing Action ${i + 1} Deposit...`);
+    compareAndLog(
+      `Action ${i + 1} Deposit`,
+      contractAction.deposit,
+      jsAction.deposit,
+    );
   }
-  return true;
 }
 
 // Run the comparison

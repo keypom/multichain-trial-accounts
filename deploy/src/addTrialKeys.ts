@@ -2,15 +2,17 @@
 
 import { Account } from "@near-js/accounts";
 import { KeyPair } from "@near-js/crypto";
-import { sendTransaction, writeJSONFile, ensureDirExists } from "./utils";
-import { TrialKey } from "./types";
+import { sendTransaction, writeJSONFile, ensureDirExists } from "./nearUtils";
+import { Config, TrialKey } from "./types";
 import { getDerivedPublicKeyFromMpc } from "./mpcUtils/kdf";
 import path from "path";
 import bs58 from "bs58";
+import { logSuccess } from "./logUtils";
 
 interface AddTrialAccountsParams {
   signerAccount: Account;
   contractAccountId: string;
+  config: Config;
   trialId: number;
   numberOfKeys: number;
   dataDir: string;
@@ -26,8 +28,14 @@ interface AddTrialAccountsParams {
 export async function addTrialAccounts(
   params: AddTrialAccountsParams,
 ): Promise<TrialKey[]> {
-  const { signerAccount, contractAccountId, trialId, numberOfKeys, dataDir } =
-    params;
+  const {
+    signerAccount,
+    contractAccountId,
+    trialId,
+    numberOfKeys,
+    dataDir,
+    config,
+  } = params;
 
   console.log(`Adding ${numberOfKeys} trial accounts...`);
 
@@ -43,8 +51,29 @@ export async function addTrialAccounts(
       contractAccountId,
       derivationPath,
     );
-    const mpcPublicKey =
+    const calculatedMpcPublicKey =
       convertSecp256k1KeyToPublicKey(mpcPublicKeyBuffer).toString();
+
+    const actualMpcPublicKey = await signerAccount.viewFunction({
+      contractId: config.mpcContractId,
+      methodName: "derived_public_key",
+      args: {
+        path: derivationPath,
+        predecessor: contractAccountId,
+      },
+    });
+
+    if (calculatedMpcPublicKey !== actualMpcPublicKey) {
+      throw new Error(
+        `Calculated MPC public key ${calculatedMpcPublicKey} does not match actual MPC public key ${actualMpcPublicKey}`,
+      );
+    } else {
+      logSuccess(
+        `Calculated MPC public key: ${calculatedMpcPublicKey} matches queried key.`,
+      );
+    }
+
+    const mpcPublicKey = calculatedMpcPublicKey;
 
     // Generate a trial account ID
     const trialAccountId = `${Date.now().toString()}-trial-${i}.testnet`;

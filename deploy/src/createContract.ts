@@ -3,7 +3,7 @@
 import { Account } from "@near-js/accounts";
 import { Near } from "@near-js/wallet-account";
 import { Config } from "./types";
-import { createAccountDeployContract } from "./utils";
+import { createAccountDeployContract } from "./nearUtils";
 
 interface DeployContractParams {
   near: Near;

@@ -40,6 +40,7 @@ async function main() {
   // Add trial accounts
   const trialKeys = await addTrialAccounts({
     signerAccount,
+    config,
     contractAccountId: trialContractId,
     trialId,
     numberOfKeys: config.numberOfKeys,

@@ -2,7 +2,7 @@
 
 import { Account } from "@near-js/accounts";
 import { TrialData } from "./types";
-import { sendTransaction, toSnakeCase } from "./utils";
+import { sendTransaction, toSnakeCase } from "./nearUtils";
 import { parseNearAmount } from "@near-js/utils";
 
 interface CreateTrialParams {

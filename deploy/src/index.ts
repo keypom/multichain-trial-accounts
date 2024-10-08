@@ -14,8 +14,9 @@ export { deployTrialContract } from "./createContract";
 export { createTrial } from "./createTrial";
 export { addTrialAccounts } from "./addTrialKeys";
 export { activateTrialAccounts } from "./activateTrial";
-export { performActions, broadcastTransaction } from "./performAction";
-export { initNear } from "./utils";
+export { performActions } from "./performAction";
+export { broadcastTransaction } from "./broadcastTransaction";
+export { initNear } from "./nearUtils";
 
 // Export types for user convenience
 export * from "./types";
