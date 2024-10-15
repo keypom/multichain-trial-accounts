@@ -11,8 +11,6 @@ impl Contract {
         args: Vec<u8>,
         gas: Gas,
         deposit: NearToken,
-        signing_key: PublicKey,
-        mpc_account_id: AccountId,
         nonce: U64,
         block_hash: Base58CryptoHash,
     ) -> Promise {
@@ -24,6 +22,8 @@ impl Contract {
         });
 
         let (trial_data, key_usage) = self.assert_action_allowed(&action);
+        let mpc_key = key_usage.mpc_key;
+        let account_id = key_usage.account_id.expect("Trial Account not activated");
 
         // Check exit conditions if any
         if let Some(exit_conditions) = &trial_data.exit_conditions {
@@ -45,8 +45,8 @@ impl Contract {
 
         // Build the NEAR transaction
         let tx = TransactionBuilder::new::<NEAR>()
-            .signer_id(mpc_account_id.to_string())
-            .signer_public_key(convert_pk_to_omni(&signing_key))
+            .signer_id(account_id.clone().to_string())
+            .signer_public_key(convert_pk_to_omni(&mpc_key))
             .nonce(nonce.0) // Use the provided nonce
             .receiver_id(contract_id.clone().to_string())
             .block_hash(OmniBlockHash(block_hash.into()))
@@ -59,8 +59,8 @@ impl Contract {
 
         // Log the details
         env::log_str(&format!(
-            "Calling NEAR contract {:?} with method {:?}",
-            contract_id, method_name
+            "Calling NEAR contract {:?} with method {:?}. Hash: {:?}"
+            contract_id, method_name, hashed_payload
         ));
 
         let request_payload =

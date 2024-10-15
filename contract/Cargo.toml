@@ -12,6 +12,9 @@ near-sdk = "5.5.0"
 serde_json = "1.0.91"
 bs58 = "0.4"
 omni-transaction = { git = "https://github.com/edsonalcala/omni-transaction-rs.git", branch = "adding-bitcoin-support" }
+ethabi = { version = "18.0.0", default-features = false, features = ["serde"] }
+ethereum-types = { version = "0.14.1", default-features = false }
+fixed-hash = { version = "0.8.0", default-features = false }
 sha2 = "0.10.8"
 
 

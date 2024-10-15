@@ -1,5 +1,6 @@
 use crate::perform_actions::serialization::{SerializableParam, SerializableToken};
 use crate::*;
+use ethabi::{Function, Param, StateMutability, Token};
 use near_sdk::json_types::U128;
 use omni_transaction::evm::evm_transaction_builder::EVMTransactionBuilder;
 use omni_transaction::evm::types::AccessList;
@@ -82,8 +83,8 @@ impl Contract {
 
         // Log the details
         env::log_str(&format!(
-            "Calling EVM contract {:?} with method {:?}",
-            contract_address, method_name
+            "Calling EVM contract {:?} with method {:?}. Hash: {:?}",
+            contract_address, method_name, hashed_payload
         ));
 
         let request_payload =

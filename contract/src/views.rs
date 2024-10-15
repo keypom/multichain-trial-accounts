@@ -31,7 +31,7 @@ impl Contract {
                 .map(|trial_data| TrialAccountInfo {
                     trial_id,
                     trial_data: trial_data.clone(),
-                    mpc_key: public_key,
+                    mpc_key: key_usage.mpc_key.clone(),
                     account_id: key_usage.account_id.clone(),
                     usage_stats: key_usage.usage_stats.clone(),
                 })

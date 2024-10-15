@@ -5,12 +5,7 @@
   "author": "Ben Kurrek",
   "scripts": {
     "build": "cd contract && ./build.sh",
-    "deploy:simple": "yarn build && ts-node deploy/main.ts simple",
-    "deploy:advanced": "ts-node deploy/main.ts advanced",
-    "test": "ava __tests__/tests.ava.ts",
-    "test:nearcon": "ava __tests__/nearcon/nearcon.ava.ts",
-    "create-drop": "node scripts/create_drop.js",
-    "add-tickets": "node scripts/add_tickets.js"
+    "deploy": "ts-node deploy/main.ts"
   },
   "dependencies": {
     "@keypom/core": "^1.0.6",

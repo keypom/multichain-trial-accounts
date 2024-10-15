@@ -1,42 +1,19 @@
 // src/main.ts
 
-import { TrialAccountManager } from "@keypom/trial-accounts";
-import { writeToFile } from "./utils/fileOps";
 import { deployTrialContract } from "./utils/deploy";
-import path from "path";
-import fs from "fs";
-import { logError, logInfo, logSuccess } from "./utils/logUtils";
 import { initNear } from "./utils/nearUtils";
+import { config } from "./config";
+import { KeyPair } from "@near-js/crypto";
 
 async function main() {
-  // Parse config name from command line arguments
-  const args = process.argv.slice(2);
-  if (args.length === 0) {
-    logError("Please provide a config name.");
-    process.exit(1);
-  }
-  const configName = args[0];
-  logInfo(`Using config: ${configName}`);
-
-  // Load the appropriate config
-  const configPath = path.join(__dirname, "configs", `${configName}.ts`);
-  if (!fs.existsSync(configPath)) {
-    logError(`Config file not found: ${configPath}`);
-    process.exit(1);
-  }
-  const { config, trialData, actionsToPerform } = await import(
-    `./configs/${configName}`
-  );
-
   // Initialize NEAR connection
-  logInfo("Initializing NEAR connection...");
   const near = await initNear(config);
   const signerAccount = await near.account(config.signerAccountId);
 
   // Deploy trial contract
   const trialContractId = `${Date.now().toString()}-trial-contract.testnet`;
-  logInfo(`Deploying trial contract with ID: ${trialContractId}`);
-  await deployTrialContract({
+  console.log(`Deploying trial contract with ID: ${trialContractId}`);
+  const trialFactoryAccountSecretKey = await deployTrialContract({
     near,
     config,
     signerAccount,
@@ -46,55 +23,15 @@ async function main() {
     initialBalance: "50", // Adjust as needed
   });
 
-  // Create TrialAccountManager instance
-  const trialManager = new TrialAccountManager({
+  // Set the trial key in the keyStore
+  const keyStore: any = (near.connection.signer as any).keyStore;
+  await keyStore.setKey(
+    near.connection.networkId,
     trialContractId,
-    mpcContractId: config.mpcContractId,
-    signerAccount,
-    near,
-  });
-
-  // Create a trial
-  logInfo("Creating a trial...");
-  const trialId = await trialManager.createTrial(trialData);
-  logSuccess(`Trial created with ID: ${trialId}`);
-
-  // Add trial accounts
-  logInfo("Adding trial accounts...");
-  const trialKeys = await trialManager.addTrialAccounts(config.numberOfKeys);
-  logSuccess(`Added ${trialKeys.length} trial accounts.`);
-
-  // Activate trial accounts and perform actions
-  for (const trialKey of trialKeys) {
-    // Set trial account credentials
-    trialManager.setTrialAccountCredentials(
-      trialKey.trialAccountId,
-      trialKey.trialAccountSecretKey,
-    );
-
-    // Activate trial account
-    logInfo(`Activating trial account: ${trialKey.trialAccountId}`);
-    await trialManager.activateTrialAccounts(trialKey.trialAccountId);
-    logSuccess(`Trial account activated: ${trialKey.trialAccountId}`);
-
-    // Perform actions
-    logInfo(`Performing actions for account: ${trialKey.trialAccountId}`);
-    await trialManager.performActions(actionsToPerform);
-    logSuccess(`Actions performed successfully for ${trialKey.trialAccountId}`);
-  }
-
-  // Prepare trial data to write to file
-  const trialDataToWrite = {
-    trialId,
-    trialContractId,
-    trialKeys,
-  };
-
-  // Write trial data to a file
-  writeToFile(trialDataToWrite, config.dataDir, "trialData.json");
-  logSuccess("Trial data written to file.");
+    KeyPair.fromString(trialFactoryAccountSecretKey),
+  );
 }
 
 main().catch((error) => {
-  logError("Error in deploy: " + error);
+  console.error("Error in deploy: " + error);
 });

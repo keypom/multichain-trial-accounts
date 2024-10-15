@@ -2,15 +2,14 @@
 
 import { Account } from "@near-js/accounts";
 import { Near } from "@near-js/wallet-account";
-import { KeyPair } from "@near-js/crypto";
+import { KeyPair, KeyPairString } from "@near-js/crypto";
 import { Action, actionCreators } from "@near-js/transactions";
 import fs from "fs";
 import { parseNearAmount } from "@near-js/utils";
-import { Config } from "../configs/type";
 
 interface DeployContractParams {
   near: Near;
-  config: Config;
+  config: any;
   signerAccount: Account;
   contractAccountId: string;
   mpcContractId: string;
@@ -26,7 +25,7 @@ interface DeployContractParams {
  */
 export async function deployTrialContract(
   params: DeployContractParams,
-): Promise<void> {
+): Promise<KeyPairString> {
   const {
     near,
     signerAccount,
@@ -37,7 +36,7 @@ export async function deployTrialContract(
     initialBalance,
   } = params;
 
-  await createAccountDeployContract({
+  return await createAccountDeployContract({
     config,
     near,
     signerAccount,
@@ -71,10 +70,10 @@ export async function createAccountDeployContract({
   wasmPath: string;
   methodName: string;
   args: any;
-  config: Config;
+  config: any;
   deposit?: string;
   gas?: string;
-}) {
+}): Promise<KeyPairString> {
   console.log("Creating account: ", newAccountId);
   let sk = await createAccount({
     signerAccount,
@@ -152,7 +151,7 @@ export async function createAccount({
   signerAccount: Account;
   newAccountId: string;
   amount: string;
-  config: Config;
+  config: any;
 }) {
   const keyPair = KeyPair.fromRandom("ed25519");
   const publicKey = keyPair.getPublicKey().toString();
