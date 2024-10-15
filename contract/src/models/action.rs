@@ -1,4 +1,5 @@
 use near_sdk::json_types::U128;
+use omni_transaction::evm::types::Address;
 
 use crate::*;
 
@@ -22,7 +23,7 @@ pub struct NearAction {
 #[near(serializers = [json, borsh])]
 pub struct EvmAction {
     pub method_name: String,
-    pub contract_address: [u8; 20], // Ethereum address
+    pub contract_address: Address,
     pub gas_limit: u128,
     pub value: U128, // Value in wei
 }

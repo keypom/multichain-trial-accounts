@@ -298,6 +298,7 @@ dependencies = [
  "ethabi",
  "ethereum-types",
  "fixed-hash",
+ "hex",
  "near-sdk",
  "omni-transaction",
  "serde_json",

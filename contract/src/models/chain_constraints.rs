@@ -1,4 +1,5 @@
 use near_sdk::json_types::U128;
+use omni_transaction::evm::types::Address;
 
 use crate::*;
 
@@ -21,8 +22,24 @@ pub struct NearConstraints {
 #[derive(Clone)]
 #[near(serializers = [json, borsh])]
 pub struct EvmConstraints {
-    pub allowed_methods: Vec<String>,     // Function signatures or names
-    pub allowed_contracts: Vec<[u8; 20]>, // Ethereum addresses
-    pub max_gas: Option<u64>,             // Gas limit
-    pub max_value: Option<U128>,          // Value in wei
+    pub allowed_methods: Vec<String>,    // Function signatures or names
+    pub allowed_contracts: Vec<Address>, // Ethereum addresses
+    pub max_gas: Option<u64>,            // Gas limit
+    pub max_value: Option<U128>,         // Value in wei
+}
+
+#[derive(Clone)]
+#[near(serializers = [json, borsh])]
+pub enum ExtChainConstraints {
+    NEAR(NearConstraints),
+    EVM(ExtEvmConstraints),
+}
+
+#[derive(Clone)]
+#[near(serializers = [json, borsh])]
+pub struct ExtEvmConstraints {
+    pub allowed_methods: Vec<String>,   // Function signatures or names
+    pub allowed_contracts: Vec<String>, // Ethereum addresses
+    pub max_gas: Option<u64>,           // Gas limit
+    pub max_value: Option<U128>,        // Value in wei
 }

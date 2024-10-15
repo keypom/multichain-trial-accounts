@@ -59,7 +59,7 @@ impl Contract {
 
         // Log the details
         env::log_str(&format!(
-            "Calling NEAR contract {:?} with method {:?}. Hash: {:?}"
+            "Calling NEAR contract {:?} with method {:?}. Hash: {:?}",
             contract_id, method_name, hashed_payload
         ));
 
