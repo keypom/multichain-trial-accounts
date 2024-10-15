@@ -3,4 +3,4 @@
 
 pub mod activate;
 pub mod exit;
-pub mod perform_action;
+pub mod perform_actions;

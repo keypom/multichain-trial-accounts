@@ -11,18 +11,7 @@ const RESET = "\x1b[0m";
 // Regular Colors
 export const RED = "\x1b[31m";
 const GREEN = "\x1b[32m";
-const YELLOW = "\x1b[33m";
 const BLUE = "\x1b[34m";
-const MAGENTA = "\x1b[35m";
-const CYAN = "\x1b[36m";
-
-// Bright Colors
-const BRIGHT_RED = "\x1b[91m";
-const BRIGHT_GREEN = "\x1b[92m";
-const BRIGHT_YELLOW = "\x1b[93m";
-const BRIGHT_BLUE = "\x1b[94m";
-const BRIGHT_MAGENTA = "\x1b[95m";
-const BRIGHT_CYAN = "\x1b[96m";
 
 /**
  * Logs a success message in green.

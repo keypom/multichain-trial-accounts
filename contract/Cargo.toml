@@ -14,6 +14,7 @@ bs58 = "0.4"
 omni-transaction = { git = "https://github.com/edsonalcala/omni-transaction-rs.git", branch = "adding-bitcoin-support" }
 sha2 = "0.10.8"
 
+
 [profile.release]
 codegen-units = 1
 opt-level = "s"
@@ -21,3 +22,4 @@ lto = true
 debug = false
 panic = "abort"
 overflow-checks = true
+

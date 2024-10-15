@@ -17,16 +17,14 @@ use omni_transaction::{
 };
 use std::collections::HashMap;
 
-pub mod chains;
 pub mod models;
-pub mod trial_admin;
+pub mod trial_creator;
 pub mod trial_user;
 pub mod utils;
 pub mod views;
 
-pub use chains::*;
 pub use models::*;
-pub use trial_admin::*;
+pub use trial_creator::*;
 pub use trial_user::*;
 pub use utils::*;
 

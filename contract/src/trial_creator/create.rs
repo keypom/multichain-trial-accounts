@@ -17,24 +17,18 @@ impl Contract {
     #[payable]
     pub fn create_trial(
         &mut self,
-        allowed_methods: Vec<String>,
-        allowed_contracts: Vec<AccountId>,
-        max_gas: Option<Gas>,
-        max_deposit: Option<NearToken>,
+        initial_deposit: NearToken,
+        chain_constraints: ChainConstraints,
         usage_constraints: Option<UsageConstraints>,
         interaction_limits: Option<InteractionLimits>,
         exit_conditions: Option<ExitConditions>,
         expiration_time: Option<u64>,
-        initial_deposit: NearToken,
         chain_id: u64,
     ) -> TrialId {
         let creator_account_id = env::predecessor_account_id();
 
         let trial_data = TrialData {
-            allowed_methods,
-            allowed_contracts,
-            max_gas,
-            max_deposit,
+            chain_constraints,
             usage_constraints,
             interaction_limits,
             exit_conditions,

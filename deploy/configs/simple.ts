@@ -1,15 +1,15 @@
-import { UnencryptedFileSystemKeyStore } from "@near-js/keystores-node";
-import { Config, TrialData, ActionToPerform } from "./src/index";
+// src/configs/simple.ts
 
-import fs from "fs";
+import { UnencryptedFileSystemKeyStore } from "@near-js/keystores-node";
+import { TrialData, ActionToPerform } from "@keypom/trial-accounts";
 import path from "path";
 import os from "os";
+import { Config } from "./type";
 
 const homedir = os.homedir();
 const CREDENTIALS_DIR = ".near-credentials";
 const credentialsPath = path.join(homedir, CREDENTIALS_DIR);
 
-// User configuration
 export const config: Config = {
   networkId: "testnet",
   signerAccountId: "benjiman.testnet",
@@ -30,7 +30,7 @@ export const actionsToPerform: ActionToPerform[] = [
   {
     targetContractId: "guestbook.near-examples.testnet",
     methodName: "add_message",
-    args: { text: "Hello from MPC!" },
+    args: { text: "Hello from the simple config!" },
     attachedDepositNear: "1",
     gas: "300000000000000",
   },

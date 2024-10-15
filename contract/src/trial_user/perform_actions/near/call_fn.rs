@@ -1,23 +1,41 @@
-// chains/near.rs
+// usage_tracking/usage_stats.rs
 use crate::*;
 
 #[near]
 impl Contract {
     /// Calls a NEAR contract via the MPC contract.
-    pub(crate) fn call_near_contract(
-        &self,
+    pub fn call_near_contract(
+        &mut self,
         contract_id: AccountId,
         method_name: String,
         args: Vec<u8>,
         gas: Gas,
         deposit: NearToken,
-        path: PublicKey,
         signing_key: PublicKey,
         mpc_account_id: AccountId,
-        chain_id: u64,
         nonce: U64,
         block_hash: Base58CryptoHash,
     ) -> Promise {
+        let action = Action::NEAR(NearAction {
+            method_name: method_name.clone(),
+            contract_id: contract_id.clone(),
+            gas_attached: gas,
+            deposit_attached: deposit,
+        });
+
+        let (trial_data, key_usage) = self.assert_action_allowed(&action);
+
+        // Check exit conditions if any
+        if let Some(exit_conditions) = &trial_data.exit_conditions {
+            // Check transaction limit
+            if let Some(transaction_limit) = exit_conditions.transaction_limit {
+                if key_usage.usage_stats.total_interactions > transaction_limit {
+                    env::panic_str("Transaction limit reached");
+                }
+            }
+            // Additional exit conditions can be checked here
+        }
+
         let actions = vec![OmniAction::FunctionCall(Box::new(OmniFunctionCallAction {
             method_name: method_name.clone(),
             args: args.clone(),
@@ -45,7 +63,8 @@ impl Contract {
             contract_id, method_name
         ));
 
-        let request_payload = create_sign_request_from_transaction(hashed_payload, &path);
+        let request_payload =
+            create_sign_request_from_transaction(hashed_payload, &env::signer_account_pk());
 
         // Call the MPC contract to get a signature
         Promise::new(self.mpc_contract.clone())
