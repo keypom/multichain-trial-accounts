@@ -5,6 +5,7 @@ use crate::*;
 
 #[derive(Clone)]
 #[near(serializers = [json, borsh])]
+#[serde(untagged)]
 pub enum ChainConstraints {
     NEAR(NearConstraints),
     EVM(EvmConstraints),
@@ -30,6 +31,7 @@ pub struct EvmConstraints {
 
 #[derive(Clone)]
 #[near(serializers = [json, borsh])]
+#[serde(untagged)]
 pub enum ExtChainConstraints {
     NEAR(NearConstraints),
     EVM(ExtEvmConstraints),

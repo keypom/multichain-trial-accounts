@@ -22,6 +22,7 @@ pub struct NearAction {
 #[derive(Clone)]
 #[near(serializers = [json, borsh])]
 pub struct EvmAction {
+    pub chain_id: u64, // Chain ID for EVM
     pub method_name: String,
     pub contract_address: Address,
     pub gas_limit: u128,

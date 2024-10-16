@@ -1,6 +1,6 @@
-use near_sdk::json_types::U128;
-
+// trial_user/perform_actions/action_checker.rs
 use crate::*;
+use near_sdk::json_types::U128;
 
 #[near]
 impl Contract {
@@ -22,120 +22,98 @@ impl Contract {
             .expect("Trial data not found");
 
         // Check expiration time
-        if let Some(expiration_time) = trial_data.expiration_time {
-            require!(
-                env::block_timestamp() < expiration_time,
-                "Trial period has expired"
-            );
+        if trial_data.has_expired(env::block_timestamp()) {
+            env::panic_str("Trial period has expired");
         }
 
         // Now check action-specific constraints
         match action {
             Action::NEAR(near_action) => {
-                // Ensure chain constraints are NEAR constraints
-                if let ChainConstraints::NEAR(near_constraints) = &trial_data.chain_constraints {
-                    // Check allowed methods
-                    if !near_constraints
-                        .allowed_methods
-                        .contains(&near_action.method_name)
-                    {
-                        env::panic_str("Method not allowed");
-                    }
+                let chain_id = ChainId::NEAR;
 
-                    // Check allowed contracts
-                    if !near_constraints
-                        .allowed_contracts
-                        .contains(&near_action.contract_id)
-                    {
-                        env::panic_str("Contract not allowed");
-                    }
-
-                    // Check gas and deposit limits
-                    if let Some(max_gas) = near_constraints.max_gas {
-                        require!(
-                            near_action.gas_attached <= max_gas,
-                            "Attached gas exceeds maximum allowed"
-                        );
-                    }
-                    if let Some(max_deposit) = near_constraints.max_deposit {
-                        require!(
-                            near_action.deposit_attached <= max_deposit,
-                            "Attached deposit exceeds maximum allowed"
-                        );
-                    }
-
-                    // Update usage statistics
-                    key_usage.usage_stats.total_interactions += 1;
-                    key_usage.usage_stats.gas_used = key_usage
-                        .usage_stats
-                        .gas_used
-                        .checked_add(near_action.gas_attached.as_gas().into())
-                        .expect("Gas overflow");
-
-                    key_usage.usage_stats.deposit_used = U128(
-                        key_usage
-                            .usage_stats
-                            .deposit_used
-                            .0
-                            .checked_add(near_action.deposit_attached.as_yoctonear())
-                            .expect("Deposit overflow"),
-                    );
-                } else {
-                    env::panic_str("Chain constraints mismatch for NEAR action");
+                // Check if the method is allowed
+                if !trial_data.is_method_allowed(&near_action.method_name, &chain_id) {
+                    env::panic_str("Method not allowed");
                 }
+
+                // Check if the contract is allowed
+                if !trial_data.is_contract_allowed(near_action.contract_id.as_str(), &chain_id) {
+                    env::panic_str("Contract not allowed");
+                }
+
+                // Check gas limit
+                if !trial_data.is_gas_within_limits(near_action.gas_attached.as_gas(), &chain_id) {
+                    env::panic_str("Attached gas exceeds maximum allowed");
+                }
+
+                // Check deposit limit
+                if !trial_data.is_deposit_within_limits(
+                    near_action.deposit_attached.as_yoctonear(),
+                    &chain_id,
+                ) {
+                    env::panic_str("Attached deposit exceeds maximum allowed");
+                }
+
+                // Update usage statistics
+                key_usage.usage_stats.total_interactions += 1;
+                key_usage.usage_stats.gas_used = key_usage
+                    .usage_stats
+                    .gas_used
+                    .checked_add(near_action.gas_attached.as_gas() as u128)
+                    .expect("Gas overflow");
+
+                key_usage.usage_stats.deposit_used = U128(
+                    key_usage
+                        .usage_stats
+                        .deposit_used
+                        .0
+                        .checked_add(near_action.deposit_attached.as_yoctonear())
+                        .expect("Deposit overflow"),
+                );
             }
             Action::EVM(evm_action) => {
-                // Ensure chain constraints are EVM constraints
-                if let ChainConstraints::EVM(evm_constraints) = &trial_data.chain_constraints {
-                    // Check allowed methods
-                    if !evm_constraints
-                        .allowed_methods
-                        .contains(&evm_action.method_name)
-                    {
-                        env::panic_str("Method not allowed");
-                    }
+                let chain_id = ChainId::EVM(evm_action.chain_id);
 
-                    // Check allowed contracts
-                    if !evm_constraints
-                        .allowed_contracts
-                        .contains(&evm_action.contract_address)
-                    {
-                        env::panic_str("Contract not allowed");
-                    }
-
-                    // Check gas and value limits
-                    if let Some(max_gas) = evm_constraints.max_gas {
-                        require!(
-                            evm_action.gas_limit <= max_gas.into(),
-                            "Gas limit exceeds maximum allowed"
-                        );
-                    }
-                    if let Some(max_value) = &evm_constraints.max_value {
-                        require!(
-                            evm_action.value.0 <= max_value.0,
-                            "Value exceeds maximum allowed"
-                        );
-                    }
-
-                    // Update usage statistics
-                    key_usage.usage_stats.total_interactions += 1;
-                    key_usage.usage_stats.gas_used = key_usage
-                        .usage_stats
-                        .gas_used
-                        .checked_add(evm_action.gas_limit)
-                        .expect("Gas overflow");
-
-                    key_usage.usage_stats.deposit_used = U128(
-                        key_usage
-                            .usage_stats
-                            .deposit_used
-                            .0
-                            .checked_add(evm_action.value.0)
-                            .expect("Value overflow"),
-                    );
-                } else {
-                    env::panic_str("Chain constraints mismatch for EVM action");
+                // Check if the method is allowed
+                if !trial_data.is_method_allowed(&evm_action.method_name, &chain_id) {
+                    env::panic_str("Method not allowed");
                 }
+
+                // Convert contract address to hex string
+                let contract_address_hex =
+                    format!("0x{}", hex::encode(evm_action.contract_address));
+
+                // Check if the contract is allowed
+                if !trial_data.is_contract_allowed(&contract_address_hex, &chain_id) {
+                    env::panic_str("Contract not allowed");
+                }
+
+                // Check gas limit
+                if !trial_data.is_gas_within_limits(evm_action.gas_limit as u64, &chain_id) {
+                    env::panic_str("Gas limit exceeds maximum allowed");
+                }
+
+                // Check value limit
+                if !trial_data.is_deposit_within_limits(evm_action.value.0, &chain_id) {
+                    env::panic_str("Value exceeds maximum allowed");
+                }
+
+                // Update usage statistics
+                key_usage.usage_stats.total_interactions += 1;
+                key_usage.usage_stats.gas_used = key_usage
+                    .usage_stats
+                    .gas_used
+                    .checked_add(evm_action.gas_limit)
+                    .expect("Gas overflow");
+
+                key_usage.usage_stats.deposit_used = U128(
+                    key_usage
+                        .usage_stats
+                        .deposit_used
+                        .0
+                        .checked_add(evm_action.value.0)
+                        .expect("Value overflow"),
+                );
             }
         }
 

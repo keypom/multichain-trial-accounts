@@ -1,31 +1,38 @@
 use crate::perform_actions::serialization::{SerializableParam, SerializableToken};
 use crate::*;
 use ethabi::{Function, Param, StateMutability, Token};
+use hex::FromHex;
 use near_sdk::json_types::U128;
 use omni_transaction::evm::evm_transaction_builder::EVMTransactionBuilder;
-use omni_transaction::evm::types::AccessList;
+use omni_transaction::evm::types::{AccessList, Address};
 use omni_transaction::transaction_builder::TxBuilder;
 
 #[near]
 impl Contract {
-    /// Calls an EVM contract via the MPC contract.
     pub fn call_evm_contract(
         &mut self,
-        contract_address: [u8; 20],
+        chain_id: u64,
+        contract_address: String,
         method_name: String,
         method_params: Vec<SerializableParam>,
         args: Vec<SerializableToken>,
         gas_limit: u128,
         value: U128,
-        chain_id: u64,
         nonce: u64,
         max_fee_per_gas: u128,
         max_priority_fee_per_gas: u128,
         access_list: AccessList,
     ) -> Promise {
+        // Parse the contract address
+        let addr_str = contract_address.trim_start_matches("0x");
+        let addr_bytes: [u8; 20] =
+            <[u8; 20]>::from_hex(addr_str).expect("Invalid Ethereum address in allowed_contracts");
+        let contract_address = Address::from(addr_bytes);
+
         let action = Action::EVM(EvmAction {
+            chain_id,
             method_name: method_name.clone(),
-            contract_address,
+            contract_address: contract_address.clone(),
             gas_limit,
             value,
         });
