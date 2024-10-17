@@ -16,11 +16,11 @@ impl Contract {
         method_name: String,
         method_params: Vec<SerializableParam>,
         args: Vec<SerializableToken>,
-        gas_limit: u128,
+        gas_limit: U128,
         value: U128,
-        nonce: u64,
-        max_fee_per_gas: u128,
-        max_priority_fee_per_gas: u128,
+        nonce: U64,
+        max_fee_per_gas: U128,
+        max_priority_fee_per_gas: U128,
         access_list: AccessList,
     ) -> Promise {
         // Parse the contract address
@@ -32,8 +32,8 @@ impl Contract {
         let action = Action::EVM(EvmAction {
             chain_id,
             method_name: method_name.clone(),
-            contract_address: contract_address.clone(),
-            gas_limit,
+            contract_address,
+            gas_limit: gas_limit.0,
             value,
         });
 
@@ -73,10 +73,10 @@ impl Contract {
         // Build the EVM transaction
         let evm_transaction = EVMTransactionBuilder::new()
             .chain_id(chain_id)
-            .nonce(nonce)
-            .max_priority_fee_per_gas(max_priority_fee_per_gas)
-            .max_fee_per_gas(max_fee_per_gas)
-            .gas_limit(gas_limit)
+            .nonce(nonce.0)
+            .max_priority_fee_per_gas(max_priority_fee_per_gas.0)
+            .max_fee_per_gas(max_fee_per_gas.0)
+            .gas_limit(gas_limit.0)
             .to(contract_address)
             .value(value.0)
             .input(input_data)

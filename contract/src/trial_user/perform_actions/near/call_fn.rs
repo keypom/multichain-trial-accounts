@@ -23,7 +23,14 @@ impl Contract {
 
         let (trial_data, key_usage) = self.assert_action_allowed(&action);
         let mpc_key = key_usage.mpc_key;
-        let account_id = key_usage.account_id.expect("Trial Account not activated");
+        let account_id = match key_usage
+            .account_id_by_chain_id
+            .get(&ChainId("NEAR".to_string()))
+            .expect("Trial Account not activated")
+        {
+            UserAccountId::NEAR(account_id) => account_id.clone(),
+            _ => panic!("No NEAR account found"),
+        };
 
         // Check exit conditions if any
         if let Some(exit_conditions) = &trial_data.exit_conditions {

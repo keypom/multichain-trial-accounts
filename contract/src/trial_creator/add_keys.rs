@@ -28,7 +28,7 @@ impl Contract {
             // Create the key usage for the trial
             let key_usage = KeyUsage {
                 trial_id,
-                account_id: None,
+                account_id_by_chain_id: HashMap::new(),
                 mpc_key: mpc_key.clone(),
                 usage_stats: UsageStats::default(),
             };

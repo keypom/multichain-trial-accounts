@@ -13,6 +13,7 @@ pub struct SerializableParam {
 // Define SerializableParamType
 #[derive(Clone)]
 #[near(serializers = [json, borsh])]
+#[serde(tag = "type", content = "value")]
 pub enum SerializableParamType {
     Address,
     Bytes,
@@ -29,11 +30,12 @@ pub enum SerializableParamType {
 // Define SerializableToken
 #[derive(Clone)]
 #[near(serializers = [json, borsh])]
+#[serde(tag = "type", content = "value")]
 pub enum SerializableToken {
-    Address([u8; 20]),
-    FixedBytes(Vec<u8>),
-    Bytes(Vec<u8>),
-    Int(String), // Use String to avoid large integer serialization issues
+    Address(String),    // Changed from [u8; 20] to String
+    FixedBytes(String), // Changed to String to accept hex string
+    Bytes(String),      // Changed to String to accept hex string
+    Int(String),        // Use String to avoid large integer serialization issues
     Uint(String),
     Bool(bool),
     String(String),
@@ -76,9 +78,24 @@ impl From<SerializableParamType> for ParamType {
 impl From<SerializableToken> for Token {
     fn from(st: SerializableToken) -> Self {
         match st {
-            SerializableToken::Address(bytes) => Token::Address(Address::from_slice(&bytes)),
-            SerializableToken::FixedBytes(data) => Token::FixedBytes(data),
-            SerializableToken::Bytes(data) => Token::Bytes(data),
+            SerializableToken::Address(s) => {
+                let s = s.trim_start_matches("0x");
+                let bytes = hex::decode(s).expect("Invalid Address value");
+                if bytes.len() != 20 {
+                    panic!("Address must be 20 bytes");
+                }
+                Token::Address(Address::from_slice(&bytes))
+            }
+            SerializableToken::FixedBytes(s) => {
+                let s = s.trim_start_matches("0x");
+                let bytes = hex::decode(s).expect("Invalid FixedBytes value");
+                Token::FixedBytes(bytes)
+            }
+            SerializableToken::Bytes(s) => {
+                let s = s.trim_start_matches("0x");
+                let bytes = hex::decode(s).expect("Invalid Bytes value");
+                Token::Bytes(bytes)
+            }
             SerializableToken::Int(s) => {
                 let value = s.parse::<U256>().expect("Invalid Int value");
                 Token::Int(value)

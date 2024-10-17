@@ -29,7 +29,7 @@ impl Contract {
         // Now check action-specific constraints
         match action {
             Action::NEAR(near_action) => {
-                let chain_id = ChainId::NEAR;
+                let chain_id = ChainId("NEAR".to_string());
 
                 // Check if the method is allowed
                 if !trial_data.is_method_allowed(&near_action.method_name, &chain_id) {
@@ -72,7 +72,7 @@ impl Contract {
                 );
             }
             Action::EVM(evm_action) => {
-                let chain_id = ChainId::EVM(evm_action.chain_id);
+                let chain_id = ChainId(evm_action.chain_id.to_string());
 
                 // Check if the method is allowed
                 if !trial_data.is_method_allowed(&evm_action.method_name, &chain_id) {

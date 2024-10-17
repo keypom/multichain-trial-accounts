@@ -15,55 +15,45 @@ impl Contract {
         exit_conditions: Option<ExitConditions>,
         expiration_time: Option<u64>,
     ) -> TrialId {
-        // Parse the String keys into ChainId
-        let chain_constraints_parsed: HashMap<ChainId, ExtChainConstraints> = chain_constraints
-            .into_iter()
-            .map(|(k, v)| {
-                let chain_id = match k.as_str() {
-                    "NEAR" => ChainId::NEAR,
-                    _ => {
-                        if let Ok(num) = k.parse::<u64>() {
-                            ChainId::EVM(num)
-                        } else {
-                            env::panic_str(&format!("Invalid chain ID: {}", k));
-                        }
-                    }
-                };
-                (chain_id, v)
-            })
-            .collect();
-
         let creator_account_id = env::predecessor_account_id();
 
         let mut constraints_by_chain_id = HashMap::new();
-        for (chain_id, ext_constraints) in chain_constraints_parsed {
-            let chain_constraints = match (chain_id.clone(), ext_constraints) {
-                (ChainId::NEAR, ExtChainConstraints::NEAR(near_constraints)) => {
-                    ChainConstraints::NEAR(near_constraints)
+
+        for (chain_id_str, ext_constraints) in chain_constraints {
+            let chain_id = ChainId(chain_id_str);
+            let chain_constraints = if chain_id.is_near() {
+                match ext_constraints {
+                    ExtChainConstraints::NEAR(near_constraints) => {
+                        ChainConstraints::NEAR(near_constraints)
+                    }
+                    _ => env::panic_str("Chain ID and constraints type mismatch"),
                 }
-                (ChainId::EVM(_), ExtChainConstraints::EVM(ext_evm_constraints)) => {
-                    // Convert allowed_contracts from Vec<String> to Vec<Address>
-                    let allowed_addresses = ext_evm_constraints
-                        .allowed_contracts
-                        .iter()
-                        .map(|addr_str| {
-                            let addr_str = addr_str.trim_start_matches("0x");
-                            let addr_bytes: [u8; 20] = <[u8; 20]>::from_hex(addr_str)
-                                .expect("Invalid Ethereum address in allowed_contracts");
-                            Address::from(addr_bytes)
-                        })
-                        .collect();
-                    let evm_constraints = EvmConstraints {
-                        allowed_methods: ext_evm_constraints.allowed_methods,
-                        allowed_contracts: allowed_addresses,
-                        max_gas: ext_evm_constraints.max_gas,
-                        max_value: ext_evm_constraints.max_value,
-                    };
-                    ChainConstraints::EVM(evm_constraints)
+            } else if let Some(_chain_id_num) = chain_id.as_evm_chain_id() {
+                match ext_constraints {
+                    ExtChainConstraints::EVM(ext_evm_constraints) => {
+                        // Process EVM constraints as before
+                        let allowed_addresses = ext_evm_constraints
+                            .allowed_contracts
+                            .iter()
+                            .map(|addr_str| {
+                                let addr_str = addr_str.trim_start_matches("0x");
+                                let addr_bytes: [u8; 20] = <[u8; 20]>::from_hex(addr_str)
+                                    .expect("Invalid Ethereum address in allowed_contracts");
+                                Address::from(addr_bytes)
+                            })
+                            .collect();
+                        let evm_constraints = EvmConstraints {
+                            allowed_methods: ext_evm_constraints.allowed_methods,
+                            allowed_contracts: allowed_addresses,
+                            max_gas: ext_evm_constraints.max_gas,
+                            max_value: ext_evm_constraints.max_value,
+                        };
+                        ChainConstraints::EVM(evm_constraints)
+                    }
+                    _ => env::panic_str("Chain ID and constraints type mismatch"),
                 }
-                _ => {
-                    env::panic_str("Chain ID and constraints type mismatch");
-                }
+            } else {
+                env::panic_str("Invalid chain ID");
             };
             constraints_by_chain_id.insert(chain_id, chain_constraints);
         }

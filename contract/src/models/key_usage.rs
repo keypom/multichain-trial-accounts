@@ -1,7 +1,16 @@
 use near_sdk::json_types::U128;
+use omni_transaction::evm::types::Address;
 
 // models/key_usage.rs
 use crate::*;
+
+#[derive(Clone)]
+#[near(serializers = [json, borsh])]
+#[serde(untagged)]
+pub enum UserAccountId {
+    NEAR(AccountId),
+    EVM(Address),
+}
 
 /// Tracks usage statistics for trial accounts.
 #[derive(Clone)]
@@ -34,7 +43,7 @@ impl Default for UsageStats {
 pub struct KeyUsage {
     pub trial_id: TrialId,
     pub mpc_key: PublicKey,
-    pub account_id: Option<AccountId>,
+    pub account_id_by_chain_id: HashMap<ChainId, UserAccountId>,
     pub usage_stats: UsageStats,
 }
 
