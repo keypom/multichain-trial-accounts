@@ -3,8 +3,10 @@ use crate::*;
 use ethabi::{Function, Param, StateMutability, Token};
 use hex::FromHex;
 use near_sdk::json_types::U128;
+use near_sdk::PromiseError;
+use omni_transaction::evm::evm_transaction::EVMTransaction;
 use omni_transaction::evm::evm_transaction_builder::EVMTransactionBuilder;
-use omni_transaction::evm::types::{AccessList, Address};
+use omni_transaction::evm::types::{AccessList, Address, Signature};
 use omni_transaction::transaction_builder::TxBuilder;
 
 #[near]
@@ -52,14 +54,13 @@ impl Contract {
 
         // Convert SerializableParamType to ethabi::ParamType
         let ethabi_params: Vec<Param> = method_params.into_iter().map(|p| p.into()).collect();
-
         // Convert SerializableToken to ethabi::Token
         let ethabi_args: Vec<Token> = args.into_iter().map(|t| t.into()).collect();
 
         // Build the function object
         let function = Function {
             name: method_name.clone(),
-            inputs: ethabi_params,
+            inputs: ethabi_params.clone(),
             outputs: vec![], // Adjust if needed
             constant: Some(false),
             state_mutability: StateMutability::NonPayable,
@@ -79,8 +80,8 @@ impl Contract {
             .gas_limit(gas_limit.0)
             .to(contract_address)
             .value(value.0)
-            .input(input_data)
-            .access_list(access_list)
+            .input(input_data.clone())
+            .access_list(access_list.clone())
             .build();
 
         let tx_bytes = evm_transaction.build_for_signing();
@@ -90,8 +91,32 @@ impl Contract {
 
         // Log the details
         env::log_str(&format!(
-            "Calling EVM contract {:?} with method {:?}. Hash: {:?}",
-            contract_address, method_name, hashed_payload
+            "LOG_STR_CHAIN_ID: {:?}
+            LOG_STR_NONCE: {:?}
+            LOG_STR_MAX_PRIORITY_FEE_PER_GAS: {:?}
+            LOG_STR_MAX_FEE_PER_GAS: {:?}
+            LOG_STR_GAS_LIMIT: {:?}
+            LOG_STR_CONTRACT: {:?}
+            LOG_STR_VALUE: {:?}
+            LOG_STR_INPUT: {:?}
+            LOG_STR_ACCESS_LIST: {:?}
+            LOG_STR_FUNCTION: {:?}
+            LOG_STR_ABI_PARAMS: {:?}
+            LOG_STR_ABI_ARGS: {:?}
+            LOG_STR_HASH: {:?}",
+            chain_id,
+            nonce.0,
+            max_priority_fee_per_gas.0,
+            max_fee_per_gas.0,
+            gas_limit.0,
+            contract_address,
+            value.0,
+            input_data,
+            access_list,
+            function,
+            ethabi_params,
+            ethabi_args,
+            hashed_payload
         ));
 
         let request_payload =
