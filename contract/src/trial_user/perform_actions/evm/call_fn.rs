@@ -1,5 +1,6 @@
 use crate::perform_actions::serialization::{SerializableParam, SerializableToken};
 use crate::*;
+use env::keccak256;
 use ethabi::{Function, Param, StateMutability, Token};
 use hex::FromHex;
 use near_sdk::json_types::U128;
@@ -87,7 +88,11 @@ impl Contract {
         let tx_bytes = evm_transaction.build_for_signing();
 
         // Compute the hash of the serialized transaction
-        let hashed_payload = hash_payload(&tx_bytes);
+        let hashed_payload_vec = keccak256(&tx_bytes);
+        // Ensure the vector has the correct length
+        let hashed_payload: [u8; 32] = hashed_payload_vec
+            .try_into()
+            .expect("Hash output should be 32 bytes");
 
         // Log the details
         env::log_str(&format!(
@@ -103,7 +108,8 @@ impl Contract {
             LOG_STR_FUNCTION: {:?}
             LOG_STR_ABI_PARAMS: {:?}
             LOG_STR_ABI_ARGS: {:?}
-            LOG_STR_HASH: {:?}",
+            LOG_STR_HASH: {:?},
+            LOG_STR_TXN_BYTES: {:?}",
             chain_id,
             nonce.0,
             max_priority_fee_per_gas.0,
@@ -116,7 +122,8 @@ impl Contract {
             function,
             ethabi_params,
             ethabi_args,
-            hashed_payload
+            hashed_payload,
+            tx_bytes
         ));
 
         let request_payload =
