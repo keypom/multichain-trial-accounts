@@ -8,7 +8,6 @@ pub struct ExtTrialData {
     pub interaction_limits: Option<InteractionLimits>,
     pub exit_conditions: Option<ExitConditions>,
     pub expiration_time: Option<u64>,
-    pub initial_deposit: NearToken,
     pub creator_account_id: AccountId,
 }
 

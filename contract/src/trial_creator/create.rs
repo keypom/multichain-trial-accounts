@@ -8,7 +8,6 @@ impl Contract {
     #[payable]
     pub fn create_trial(
         &mut self,
-        initial_deposit: NearToken,
         chain_constraints: HashMap<String, ExtChainConstraints>,
         usage_constraints: Option<UsageConstraints>,
         interaction_limits: Option<InteractionLimits>,
@@ -47,6 +46,7 @@ impl Contract {
                             allowed_contracts: allowed_addresses,
                             max_gas: ext_evm_constraints.max_gas,
                             max_value: ext_evm_constraints.max_value,
+                            initial_deposit: ext_evm_constraints.initial_deposit,
                         };
                         ChainConstraints::EVM(evm_constraints)
                     }
@@ -64,7 +64,6 @@ impl Contract {
             interaction_limits,
             exit_conditions,
             expiration_time,
-            initial_deposit,
             creator_account_id: creator_account_id.clone(),
         };
 

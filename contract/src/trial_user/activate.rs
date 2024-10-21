@@ -58,8 +58,14 @@ impl Contract {
         // Retrieve the MPC public key for this trial
         let mpc_public_key = key_usage.mpc_key.clone();
 
-        // Create account options with the full access key as the MPC public key only if the trial is on NEAR
-        if let UserAccountId::NEAR(near_account_id) = user_account_id {
+        // Ensure the chain constraints are correctly retrieved
+        if let (
+            UserAccountId::NEAR(ref near_account_id),
+            Some(ChainConstraints::NEAR(ref constraints)),
+        ) = (
+            user_account_id,
+            trial_data.get_chain_constraints(&ChainId("NEAR".to_string())),
+        ) {
             let account_options = CreateAccountAdvancedOptions {
                 options: CreateAccountOptions {
                     full_access_keys: Some(vec![mpc_public_key]),
@@ -71,10 +77,10 @@ impl Contract {
             Promise::new(root_account).function_call_weight(
                 "create_account_advanced".to_string(),
                 serde_json::to_vec(&account_options).unwrap(),
-                NearToken::from_yoctonear(trial_data.initial_deposit.as_yoctonear()),
+                constraints.initial_deposit,
                 Gas::from_tgas(30),
                 GasWeight(1),
             );
-        };
+        }
     }
 }

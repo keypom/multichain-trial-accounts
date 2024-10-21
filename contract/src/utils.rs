@@ -106,6 +106,7 @@ pub fn trial_data_to_ext_trial_data(trial_data: TrialData) -> ExtTrialData {
                         allowed_contracts,
                         max_gas: evm_constraints.max_gas,
                         max_value: evm_constraints.max_value,
+                        initial_deposit: evm_constraints.initial_deposit,
                     };
                     ExtChainConstraints::EVM(ext_evm_constraints)
                 }
@@ -120,7 +121,6 @@ pub fn trial_data_to_ext_trial_data(trial_data: TrialData) -> ExtTrialData {
         interaction_limits: trial_data.interaction_limits,
         exit_conditions: trial_data.exit_conditions,
         expiration_time: trial_data.expiration_time,
-        initial_deposit: trial_data.initial_deposit,
         creator_account_id: trial_data.creator_account_id,
     }
 }

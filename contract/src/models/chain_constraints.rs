@@ -18,6 +18,7 @@ pub struct NearConstraints {
     pub allowed_contracts: Vec<AccountId>,
     pub max_gas: Option<Gas>,
     pub max_deposit: Option<NearToken>,
+    pub initial_deposit: NearToken,
 }
 
 #[derive(Clone)]
@@ -27,6 +28,7 @@ pub struct EvmConstraints {
     pub allowed_contracts: Vec<Address>, // Ethereum addresses
     pub max_gas: Option<u64>,            // Gas limit
     pub max_value: Option<U128>,         // Value in wei
+    pub initial_deposit: String,         // Value in wei
 }
 
 #[derive(Clone)]
@@ -44,4 +46,5 @@ pub struct ExtEvmConstraints {
     pub allowed_contracts: Vec<String>, // Ethereum addresses
     pub max_gas: Option<u64>,           // Gas limit
     pub max_value: Option<U128>,        // Value in wei
+    pub initial_deposit: String,        // Value in wei
 }

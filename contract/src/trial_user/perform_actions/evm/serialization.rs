@@ -1,5 +1,6 @@
 use ethabi::{Address, Param, ParamType, Token};
 use ethereum_types::U256;
+use std::str::FromStr;
 
 use crate::*;
 
@@ -78,40 +79,68 @@ impl From<SerializableParamType> for ParamType {
 impl From<SerializableToken> for Token {
     fn from(st: SerializableToken) -> Self {
         match st {
+            // Handle Address parsing
             SerializableToken::Address(s) => {
+                env::log_str(&format!("Incoming Address value: {}", s));
                 let s = s.trim_start_matches("0x");
                 let bytes = hex::decode(s).expect("Invalid Address value");
                 if bytes.len() != 20 {
                     panic!("Address must be 20 bytes");
                 }
+                env::log_str(&format!("Parsed Address value: {:?}", bytes));
                 Token::Address(Address::from_slice(&bytes))
             }
+            // Handle FixedBytes parsing
             SerializableToken::FixedBytes(s) => {
+                env::log_str(&format!("Incoming FixedBytes value: {}", s));
                 let s = s.trim_start_matches("0x");
                 let bytes = hex::decode(s).expect("Invalid FixedBytes value");
+                env::log_str(&format!("Parsed FixedBytes value: {:?}", bytes));
                 Token::FixedBytes(bytes)
             }
+            // Handle Bytes parsing
             SerializableToken::Bytes(s) => {
+                env::log_str(&format!("Incoming Bytes value: {}", s));
                 let s = s.trim_start_matches("0x");
                 let bytes = hex::decode(s).expect("Invalid Bytes value");
+                env::log_str(&format!("Parsed Bytes value: {:?}", bytes));
                 Token::Bytes(bytes)
             }
+            // Handle Int parsing
             SerializableToken::Int(s) => {
-                let value = s.parse::<U256>().expect("Invalid Int value");
-                Token::Int(value)
+                env::log_str(&format!("Incoming Int value: {}", s));
+                let value = if s.starts_with("0x") {
+                    U256::from_str_radix(&s[2..], 16).expect("Invalid Int value")
+                } else {
+                    U256::from_str_radix(&s, 10).expect("Invalid Int value")
+                };
+                // Convert U256 to signed integer (assuming 256-bit signed integer)
+                let int_value = ethabi::Int::from(value);
+                env::log_str(&format!("Parsed Int value: {:?}", int_value));
+                Token::Int(int_value)
             }
+            // Handle Uint parsing
             SerializableToken::Uint(s) => {
-                let value = s.parse::<U256>().expect("Invalid Uint value");
+                env::log_str(&format!("Incoming Uint value: {}", s));
+                let value = if s.starts_with("0x") {
+                    U256::from_str_radix(&s[2..], 16).expect("Invalid Uint value")
+                } else {
+                    U256::from_str_radix(&s, 10).expect("Invalid Uint value")
+                };
+                env::log_str(&format!("Parsed Uint value: {}", value));
                 Token::Uint(value)
             }
             SerializableToken::Bool(b) => Token::Bool(b),
             SerializableToken::String(s) => Token::String(s),
+            // Handle FixedArray recursively
             SerializableToken::FixedArray(tokens) => {
                 Token::FixedArray(tokens.into_iter().map(|t| t.into()).collect())
             }
+            // Handle Array recursively
             SerializableToken::Array(tokens) => {
                 Token::Array(tokens.into_iter().map(|t| t.into()).collect())
             }
+            // Handle Tuple recursively
             SerializableToken::Tuple(tokens) => {
                 Token::Tuple(tokens.into_iter().map(|t| t.into()).collect())
             }
