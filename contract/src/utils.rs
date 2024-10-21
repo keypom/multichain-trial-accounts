@@ -2,11 +2,15 @@
 
 use crate::*;
 use near_sdk::{env, CurveType, PublicKey};
-use omni_transaction::near::types::{
-    ED25519PublicKey as OmniEd25519PublicKey, PublicKey as OmniPublicKey,
-    Secp256K1PublicKey as OmniSECP256K1PublicKey,
+use omni_transaction::{
+    evm::types::Address,
+    near::types::{
+        ED25519PublicKey as OmniEd25519PublicKey, PublicKey as OmniPublicKey,
+        Secp256K1PublicKey as OmniSECP256K1PublicKey,
+    },
 };
 use sha2::{Digest, Sha256};
+use views::ExtTrialData;
 
 /// Converts a NEAR `PublicKey` to an OmniTransaction `PublicKey`.
 pub fn convert_pk_to_omni(pk: &PublicKey) -> OmniPublicKey {
@@ -74,6 +78,51 @@ pub fn create_sign_request_from_transaction(
 
     // Wrap the sign request into the expected structure
     serde_json::json!({ "request": sign_request })
+}
+
+// Utility function to convert an Ethereum address to a normalized hex string
+pub fn convert_address_to_hex_string(address: &Address) -> String {
+    format!("0x{}", hex::encode(address))
+}
+
+/// Function to convert addresses in TrialData to hex strings for easy comparison
+pub fn trial_data_to_ext_trial_data(trial_data: TrialData) -> ExtTrialData {
+    let constraints_by_chain_id = trial_data
+        .constraints_by_chain_id
+        .into_iter()
+        .map(|(chain_id, chain_constraints)| {
+            let ext_constraints = match chain_constraints {
+                ChainConstraints::NEAR(near_constraints) => {
+                    ExtChainConstraints::NEAR(near_constraints)
+                }
+                ChainConstraints::EVM(evm_constraints) => {
+                    let allowed_contracts = evm_constraints
+                        .allowed_contracts
+                        .into_iter()
+                        .map(|address| convert_address_to_hex_string(&address))
+                        .collect();
+                    let ext_evm_constraints = ExtEvmConstraints {
+                        allowed_methods: evm_constraints.allowed_methods,
+                        allowed_contracts,
+                        max_gas: evm_constraints.max_gas,
+                        max_value: evm_constraints.max_value,
+                        initial_deposit: evm_constraints.initial_deposit,
+                    };
+                    ExtChainConstraints::EVM(ext_evm_constraints)
+                }
+            };
+            (chain_id, ext_constraints)
+        })
+        .collect();
+
+    ExtTrialData {
+        constraints_by_chain_id,
+        usage_constraints: trial_data.usage_constraints,
+        interaction_limits: trial_data.interaction_limits,
+        exit_conditions: trial_data.exit_conditions,
+        expiration_time: trial_data.expiration_time,
+        creator_account_id: trial_data.creator_account_id,
+    }
 }
 
 #[near]

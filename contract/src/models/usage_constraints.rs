@@ -10,7 +10,7 @@ pub struct UsageConstraints {
     pub max_methods: Option<u64>,
     pub max_token_transfer: Option<U128>,
     pub rate_limit_per_minute: Option<u64>,
-    pub blacklisted_addresses: Vec<AccountId>,
+    pub blacklisted_addresses: Vec<String>, // Use String to represent addresses for both NEAR and EVM
 }
 
 /// Defines interaction limits for trial accounts.
