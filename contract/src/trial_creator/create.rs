@@ -19,13 +19,16 @@ impl Contract {
         let mut constraints_by_chain_id = HashMap::new();
 
         for (chain_id_str, ext_constraints) in chain_constraints {
-            let chain_id = ChainId(chain_id_str);
+            let chain_id = ChainId(chain_id_str.clone());
             let chain_constraints = if chain_id.is_near() {
                 match ext_constraints {
                     ExtChainConstraints::NEAR(near_constraints) => {
                         ChainConstraints::NEAR(near_constraints)
                     }
-                    _ => env::panic_str("Chain ID and constraints type mismatch"),
+                    _ => env::panic_str(&format!(
+                        "Chain ID `{}` expects NEAR constraints, found EVM constraints.",
+                        chain_id_str.clone()
+                    )),
                 }
             } else if let Some(_chain_id_num) = chain_id.as_evm_chain_id() {
                 match ext_constraints {
@@ -50,7 +53,10 @@ impl Contract {
                         };
                         ChainConstraints::EVM(evm_constraints)
                     }
-                    _ => env::panic_str("Chain ID and constraints type mismatch"),
+                    _ => env::panic_str(&format!(
+                        "Chain ID `{}` expects EVM constraints, found NEAR constraints.",
+                        chain_id_str.clone()
+                    )),
                 }
             } else {
                 env::panic_str("Invalid chain ID");
